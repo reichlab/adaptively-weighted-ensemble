@@ -1,0 +1,42 @@
+---
+title: "Prediction of Infectious Disease Epidemics via Adaptively Weighted Ensembles"
+author: "Evan L Ray, Krzysztof Sakrejda, Nicholas G Reich"
+date: "January 2017"
+output: pdf_document
+---
+
+
+## Abstract
+
+
+## Introduction
+
+1 paragraph big picture intro to prediction in infectious disease context
+
+The observation that motivated the development of the method presented in this manuscript was seeing how certain prediction models for infectious disease consistently performed better than other models at certain times of year. We set out to determine whether we past model performance could inform dynamic and adaptive model weights in an ensemble prediction framework. We observed that early in the US influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy.
+
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied an adaptively weighted ensemble model to predicting several features of the influenza season at each week during the season. Specifically, we aimed to predict three  values defined by the US Centers for Disease Control and Prevention (US CDC) that define important features of an epidemic season: 
+
+ 1. onset week: the week at which the incidence first exceeds and remains above a region-specific threshold,
+ 2. peak week: the week at which the maximum incidence for the season is observed,
+ 3. peak incidence: the maximum observed weighted influenza-like illness (wILI) measure in a season.
+
+
+
+## Methods
+
+### Component models
+We used three component models to generate predictions of these quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard SARIMA implementation and model selection approach to fit a seasonal auto-regressive model to the data.
+
+
+### Ensemble model framework
+
+### Model training and cross-validation
+
+### Model testing
+
+
+## Results
+
+
+## Conclusion
