@@ -11,6 +11,8 @@ output: pdf_document
 
 ## Introduction
 
+1 paragraph introduction to ensemble models, quick review of stacking literature
+
 1 paragraph big picture intro to prediction in infectious disease context
 
 The observation that motivated the development of the method presented in this manuscript was seeing how certain prediction models for infectious disease consistently performed better than other models at certain times of year. We set out to determine whether we past model performance could inform dynamic and adaptive model weights in an ensemble prediction framework. We observed that early in the US influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy.
@@ -36,8 +38,28 @@ We used three component models to generate predictions of these quantities of in
 
  3) A SARIMA model.  This model is fit to seasonally differenced log(weighted_ili) using a stepwise procedure to select the model specification.  A separate model fit is obtained for each region.
 
-### Ensemble model framework
+### Ensemble models 
 
+1. Simple average
+2. Adaptive weights with no regularization
+3. Adaptive weights with regularization
+
+### Adaptively Weighted Ensemble framework
+
+Let $f_m(y)$ denote the predictive density from model $m$ for the value of the scalar random variable $Y$.  For example, $Y$ could represent the peak incidence for a given season or the incidence in the season corresponding to a particular week.  The combined predictive density at time $t$ is
+\begin{align}
+f(y|x) &= \sum_{m = 1}^M \pi_m f_m(y|x) \text{, where} \label{eqn:EnsembleModel} \\
+\pi_{m} &= \frac{\exp\{\rho_m(x)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(x)\}}  \label{eqn:PiMultilogitRho} 
+\end{align}
+where $\rho_m(x)$ is XXX.
+
+In the context of repeated predictions from a time-series, the covariate vector $x$ may include time-dependent covariates, e.g. the week at which the prediction is made. However to introduce the method more generally, we can think of $x$ as being any set of covariates that may influence which model may be more tied to the true outcome.
+    
+In Equation~\eqref{eqn:EnsembleModel} the $\pi_i$ are the model weights, which we regard as functions of $d(t)$.  These weights must be non-negative and sum to $1$ across $i$.  We ensure that these constraints are met by parameterizing the $\pi_i$ in terms of the softmax transformation of real-valued functions $\rho_i$ in Equation~\eqref{eqn:PiMultilogitRho}.  We avoid identifiability problems by fixing $\rho_N(d) = 0$ for all $d$.  For other models $i$, $\rho_i(d) > 0$ indicates that model $i$ has more weight than the baseline model for predictions at the given value of $d$.
+
+Preliminary investigations have revealed that there are nonlinearities in the relative performance of different models as a function of the time of year at which predictions are made. In Equation~\eqref{eqn:rhoSplineExpansion} we capture these nonlinearities by parameterizing the functions $\rho_i$ using a cubic B-spline with $K$ evenly spaced knots centered around a linear trend.  The $b_k(d)$ are the cubic B-spline basis functions.  Other flexible modeling tools such as Gaussian processes or gradient tree boosting could also be used.
+
+To prevent the stacking model from overfitting the training data, we estimate the model parameters by optimizing a penalized loss function where the penalty encourages the splines to be smooth.  The underlying unpenalized loss function is a measure of the quality of the final predictive distribution $f_t(y_t)$, obtained by cross-validation.  Because model performance will be evaluated using log scores, we will use negative cross-validated log scores as the loss function during parameter estimation:
 The final predictions are obtained as a linear combination of the predictions from these component models.  The model weights depend on the week of the season in which the predictions are made.  We represent these weights as the softmax transformation of latent functions rho_ilt(season week) where i = 1, ..., 3 indexes the component model, l = 1, ..., 11 indexes the location (national or region 1 through 10), and t = 1, ..., 7 indexes the prediction target.  We estimate those latent functions rho_ilt via gradient tree boosting, optimizing leave-one-season-out crossvalidated log scores (using the definition of log scores specified for this competition).
 
 We have introduced regularization into our model weighting scheme, which uses gradient tree boosting.  For now, weight regularization is done through three parameters; optimal values of those parameters are selected through cross-validation and a single best weighting scheme is selected.  The parameters are the depth of the regression trees used in the gradient tree boosting process, the number of boosting iterations, and the learning rate.
