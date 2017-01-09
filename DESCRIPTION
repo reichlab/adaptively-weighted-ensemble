@@ -1,0 +1,15 @@
+Package: awes
+Title: Adaptively Weighted Ensembles via Stacking
+Version: 0.0.0.9000
+Authors@R: person("Evan", "Ray", , "elray@umass.edu", c("aut", "cre"))
+Description: Code and manuscript for adaptively weighted ensembles via stacking
+Depends:
+    R (>= 3.0.2)
+Imports:
+License: What license is it under?
+LazyData: true
+Suggests:
+    knitr,
+    testthat
+VignetteBuilder: knitr
+RoxygenNote: 5.0.1
