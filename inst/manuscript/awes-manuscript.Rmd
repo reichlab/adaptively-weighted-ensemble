@@ -31,6 +31,8 @@ Using seasonal influenza outbreaks in the US health regions as a case-study, we 
 
 The season onset is defined as the first week of the season for which incidence in the following three weeks is greater than or equal to a threshold that is specific to the region and season.  This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations (cite https://www.cdc.gov/flu/weekly/overview.htm).  The CDC provides historical threshold values for each region going back to the 2007/2008 season (cite https://github.com/cdcepi/FluSight-forecasts/blob/master/wILI_Baseline.csv); for the purposes of training our models, we have used region-specific average baseline values for the earlier seasons.
 
+Is current implementation holding CDC baseline constant across seasons? predict_region_kde makes me think so.
+
 ### Component models
 We used three component models to generate predictions of these quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard SARIMA implementation and model selection approach to fit a seasonal auto-regressive model to the data.
 
