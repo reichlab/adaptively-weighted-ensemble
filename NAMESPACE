@@ -2,3 +2,5 @@
 
 export(fit_region_kdes)
 export(predict_region_kde)
+importFrom(Rcpp,evalCpp)
+useDynLib(awes, .registration = TRUE)
