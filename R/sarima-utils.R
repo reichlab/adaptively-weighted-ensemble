@@ -1,8 +1,22 @@
 ## utility functions for SARIMA fits
 
-## This is directly taken from the forecast.Arima function from the forecast package,
-## but I've forced bootstrap = TRUE and return the simulated trajectories which were
-## not returned in the original function definition.
+#' Simulate predictive trajectories from an ARIMA model
+#' 
+#' This is directly taken from the forecast.Arima function from the forecast package,
+#' but I've forced bootstrap = TRUE and return the simulated trajectories which were
+#' not returned in the original function definition.
+#' 
+#' @param object an Arima fit object (with class "Arima")
+#' @param h number of time steps forwards to simulate
+#' @param level not used
+#' @param fan not used
+#' @param xreg not used
+#' @param lambda not used
+#' @param npaths number of sample trajectories to simulate
+#' 
+#' @return an npaths by h matrix with simulated values
+#' 
+#' @export
 sample_predictive_trajectories_arima <- function (object,
     h = ifelse(object$arma[5] > 1, 2 * object$arma[5], 10),
     level = c(80, 95),
@@ -20,6 +34,39 @@ sample_predictive_trajectories_arima <- function (object,
     return(sim)
 }
 
+#' A wrapper around sample_predictive_trajectories_arima suitable for use as the
+#' \code{simulate_trajectories_function} argument to
+#' \code{get_log_scores_via_trajectory_simulation}.
+#' 
+#' This function does a few things worth noting.  It subsets data to the
+#' analysis time.  It pulls in an appropriate SARIMA fit, either a
+#' leave-one-season-out fit if the analysis time is before the first test season
+#' or a fit based on all of the training data if the analysis time is in or
+#' after the first test season.  It linearly interpolates missing values.
+#' It handles log transformations and possible seasonal differencing that may
+#' be done outside of functionality in the forecast package.
+#' 
+#' @param n_sims number of trajectories to simulate
+#' @param max_prediction_horizon how many steps ahead to simulate
+#' @param data data set
+#' @param region region
+#' @param analysis_time_season season in which we're predicting
+#' @param analysis_time_season_week week of the season in which we're making our
+#'   predictions, using all data up to the analysis time to make predictions for
+#'   later time points
+#' @param params other parameters.  A list with the following entries:
+#'   * fits_filepath = path to a directory where SARIMA model fits are located
+#'   * prediction_target_var = string naming variable in data we are predicting
+#'   * seasonal_difference = logical specifying whether a seasonal difference
+#'       should be computed manually before passing to auto.arima
+#'   * transformation = string, either "log", "box-cox", or "none", indicating
+#'       type of transformation to do
+#'   * first_test_season = string, in format of "2011/2012", specifying first
+#'       test season.
+#' 
+#' @return an n_sims by h matrix with simulated values
+#' 
+#' @export
 sample_predictive_trajectories_arima_wrapper <- function(
     n_sims,
     max_prediction_horizon,
@@ -155,8 +202,17 @@ sample_predictive_trajectories_arima_wrapper <- function(
 #' @param path path in which to save files
 #'
 #' @return NULL just saves files
-#'
-fit_region_sarima <- function(data, reg_num, first_test_season, d = NA, D = NA, seasonal_difference = TRUE, transformation = "none", path) {
+#' 
+#' @export
+fit_region_sarima <- function(
+  data,
+  reg_num,
+  first_test_season,
+  d = NA,
+  D = NA,
+  seasonal_difference = TRUE,
+  transformation = "none",
+  path) {
     require(forecast)
     ## subset data to be only the region of interest
     if(reg_num == "X") {
