@@ -3,30 +3,31 @@
 ## 7 October 2016
 
 
-##' General strategy
+## General strategy
 
-##' ESTIMATION
-##' write a function 
-##'   inputs: a dataset
-##'   outputs: a list of KDE fits, one for each target
-##' iterate function across all regions and years to create a set of LOSO fits
-##' 
-##' notes by target:
-##'     weekly incidence: use observations from target week +/- 1 week 
-##'     peak incidence: truncate above previous observations?
-##'     onset and peak week: discrete, but use continuous KDEs and round
-##'     onset week: there is a none category, consider including a point-mass based on past seasons not above baseline
-##'     
-##' PREDICTION
-##' write a predict function 
-##'   input: a fitted object from above 
-##'   input: a time at which to make predictions for (data not needed!)
-##'   input: n_sims
-##'   output: data_frame in format as others, specifying predictive distribution
-##' iterate across regions, left-out years to create predictions
-##' 
+## ESTIMATION
+## write a function 
+##   inputs: a dataset
+##   outputs: a list of KDE fits, one for each target
+## iterate function across all regions and years to create a set of LOSO fits
+## 
+## notes by target:
+##     weekly incidence: use observations from target week +/- 1 week 
+##     peak incidence: truncate above previous observations?
+##     onset and peak week: discrete, but use continuous KDEs and round
+##     onset week: there is a none category, consider including a point-mass based on past seasons not above baseline
+##     
+## PREDICTION
+## write a predict function 
+##   input: a fitted object from above 
+##   input: a time at which to make predictions for (data not needed!)
+##   input: n_sims
+##   output: data_frame in format as others, specifying predictive distribution
+## iterate across regions, left-out years to create predictions
+## 
 
 
+##' Fits and saves KDE models for all region-year combinations
 ##' 
 ##' @param data cleaned usflu dataset
 ##' @param region character string identifying a region
@@ -35,6 +36,8 @@
 ##' @param path filepath for saving 
 ##' 
 ##' @return nothing, just saving files
+##' 
+##' @export
 ##' 
 fit_region_kdes <- function(data, region, first_test_year, first_test_week, path) {
     require(MMWRweek)

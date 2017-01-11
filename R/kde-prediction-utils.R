@@ -11,7 +11,6 @@
 #'         in bins representing season week 1 through 52 (or EW31 through EW30 -- or EW29 if a 53 week year) 
 #'         with the final entry representing the probability of no onset
 #'
-#' @examples
 predict_kde_onset_week <- function(fm, n_sim) {
     kde_onset_week <- fm$kde
     prob_no_onset <- fm$prob_no_onset
@@ -45,7 +44,6 @@ predict_kde_onset_week <- function(fm, n_sim) {
 #' @return vector of 52 probabilities representing the predictive distribution of peak week, 
 #'         in bins representing season week 1 through 52 (or EW31 through EW30 -- or EW29 if a 53 week year) 
 #'         with the final entry representing the probability of no onset#'
-#' @examples
 predict_kde_peak_week <- function(fm, n_sim) {
     kde_peak_week <- fm$kde
     peaks <- fm$x
@@ -79,7 +77,6 @@ predict_kde_peak_week <- function(fm, n_sim) {
 #' @return vector of probabilities representing the predictive distribution of NOT LOG peak week incidence, 
 #'         in given bins 
 #'
-#' @examples
 predict_kde_log_peak_week_inc <- function(fm, bins, bin_names, n_sim) {
     kde_peak_week_inc <- fm$kde
     log_peak_inc <- fm$x
@@ -105,7 +102,6 @@ predict_kde_log_peak_week_inc <- function(fm, bins, bin_names, n_sim) {
 #' @return matrix of probabilities representing the predictive distribution of NOT LOG scale weekly incidence, 
 #'         with row correponding to the bin and column corresponding to each given season_week
 #'
-#' @examples
 predict_kde_log_weekly_inc <- function(fm, season_weeks, bins, bin_names, n_sim) {
     require(mgcv)
 
