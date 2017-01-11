@@ -195,7 +195,9 @@ fit_kde_weekly_inc <- function(data) {
 #'       \item{Compare predictions to the real data}
 #'       \item{Save object with comparisons}
 #' }
-predict_region_kde <- function(data, region, first_test_season, path, n_sim) {
+#' 
+#' @export
+predict_region_kde <- function(data, region, path, n_sim) {
     
     require(dplyr)
     
@@ -261,7 +263,9 @@ predict_region_kde <- function(data, region, first_test_season, path, n_sim) {
     
     ### generate predictions made at each season-week
     ## make dataset for storage
-    predictions_df <- make_predictions_dataframe(dat, model_name="kde")
+    predictions_df <- make_predictions_dataframe(dat, 
+                                                 model_name="kde", 
+                                                 incidence_bin_names=incidence_bin_names)
     
     results_save_row <- 1L
     

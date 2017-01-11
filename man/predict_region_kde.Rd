@@ -4,7 +4,7 @@
 \alias{predict_region_kde}
 \title{Wrapper for prediction and evaluation of KDE fits}
 \usage{
-predict_region_kde(data, region, first_test_season, path, n_sim)
+predict_region_kde(data, region, path, n_sim)
 }
 \arguments{
 \item{data}{data, to be used for evaluation}
