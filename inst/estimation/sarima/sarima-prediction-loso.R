@@ -9,6 +9,7 @@ library(awes)
 ### Get command line arguments
 args <- commandArgs(trailingOnly = TRUE)
 region <- args[1]
+region <- gsub("-", " ", region)
 analysis_time_season <- args[2]
 
 ## Parameters used in simulating trajectories via kcde
@@ -16,7 +17,8 @@ simulate_trajectories_sarima_params <- list(
   fits_filepath = "inst/estimation/sarima/fits",
   prediction_target_var = "weighted_ili",
   seasonal_difference = TRUE,
-  transformation = "log"
+  transformation = "log",
+  first_test_season = "2011/2012"
 )
 
 get_log_scores_via_trajectory_simulation(
