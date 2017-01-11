@@ -36,3 +36,6 @@ vignettes/*.pdf
 
 /src/*.so
 /src/*.o
+
+# not sure what these files are or where the come from, but we don't need 'em.
+*.DS_Store
