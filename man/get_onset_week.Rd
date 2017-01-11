@@ -16,7 +16,7 @@ point in a season}
 \item{onset_length}{number of consecutive time points that incidence must
 exceed the baseline threshold in order to count as the season onset}
 
-\item{first_season_week}{number of week in year corresponding to the first
+\item{first_season_week}{number of weeks in year corresponding to the first
 week in the season.  For example, our code takes this value to be 31:
 a new influenza season starts on the 31st week of each year.}
 

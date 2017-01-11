@@ -7,7 +7,8 @@
 get_onset_baseline(region, season = "2015/2016")
 }
 \arguments{
-\item{region}{a string, either "X" or "Region k" where k \in {1, ..., 10}}
+\item{region}{a string, either "X", "Region k", or "Regionk" where
+k \in {1, ..., 10}}
 
 \item{season}{a string, in the format "2015/2016"}
 }

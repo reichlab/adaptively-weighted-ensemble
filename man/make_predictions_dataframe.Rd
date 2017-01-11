@@ -21,7 +21,7 @@ which we will form a prediction}
 which we will form a prediction}
 }
 \value{
-the prediction_df
+the prediction_df filled with NAs
 }
 \description{
 Helper function to standardize creation of empty prediction dataset
