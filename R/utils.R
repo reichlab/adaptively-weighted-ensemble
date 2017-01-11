@@ -7,7 +7,7 @@
 #' @param baseline the threshold that incidence must cross to count as an onset
 #' @param onset_length number of consecutive time points that incidence must
 #'   exceed the baseline threshold in order to count as the season onset
-#' @param first_season_week number of week in year corresponding to the first
+#' @param first_season_week number of weeks in year corresponding to the first
 #'   week in the season.  For example, our code takes this value to be 31:
 #'   a new influenza season starts on the 31st week of each year.
 #' @param weeks_in_first_season_year How many MMWR weeks are in the first year
@@ -18,6 +18,8 @@
 #'   incidence_trajectory[seq(from = i, length = onset_length)]
 #'   is >= baseline, if such an index exists.
 #'   Otherwise, the character vector "none"
+#' 
+#' @export
 get_onset_week <- function(incidence_trajectory,
   baseline,
   onset_length,
@@ -55,6 +57,8 @@ get_onset_week <- function(incidence_trajectory,
 #' 
 #' @return vector of the same length as season_week with the week of the year
 #'   that each observation falls on
+#' 
+#' @export
 season_week_to_year_week <- function(
   season_week,
   first_season_week = 31,
@@ -80,6 +84,8 @@ season_week_to_year_week <- function(
 #' 
 #' @return vector of the same length as year_week with the week of the season
 #'   that each observation falls on
+#' 
+#' @export
 year_week_to_season_week <- function(
   year_week,
   year) {
@@ -118,6 +124,8 @@ year_week_to_season_week <- function(
 #'   3) observed_peak_inc, a numeric with the maximum value of the specified
 #'     incidence measure between first_CDC_season_week and last_CDC_season_week
 #'   4) observed_peak_inc_bin, character name of incidence bin for peak incidence
+#' 
+#' @export
 get_observed_seasonal_quantities <- function(
   data,
   season,
@@ -208,6 +216,8 @@ get_observed_seasonal_quantities <- function(
 #' @param prediction_target 
 #' 
 #' @return log score for the given observation
+#' 
+#' @export
 compute_competition_log_score <- function(bin_log_probs,
   observed_bin,
   prediction_target) {
@@ -312,10 +322,13 @@ compute_competition_log_score <- function(bin_log_probs,
 
 #' Get the onset baseline for a combination of region and season
 #' 
-#' @param region a string, either "X" or "Region k" where k \in {1, ..., 10}
+#' @param region a string, either "X", "Region k", or "Regionk" where
+#'   k \in {1, ..., 10}
 #' @param season a string, in the format "2015/2016"
 #' 
 #' @return baseline value for determining season onset
+#' 
+#' @export
 get_onset_baseline <- function(region, season = "2015/2016") {
   ## pick baseline
   baselines <- read.csv(file="data-raw/cdc-baselines.csv")
@@ -338,8 +351,9 @@ get_onset_baseline <- function(region, season = "2015/2016") {
 #' @param last_analysis_time_season_week the last week during each season in
 #'   which we will form a prediction
 #'
-#' @return the prediction_df
-#'
+#' @return the prediction_df filled with NAs
+#' 
+#' @export
 make_predictions_dataframe <- function(data,
   model_name,
   incidence_bin_names,
@@ -398,8 +412,59 @@ make_predictions_dataframe <- function(data,
   return(predictions_df)
 }
 
+#' Get log scores and full predictive distributions for each prediction target
+#' 
+#' for a given season using a predictive method that works by simulating
+#' trajectories of incidence in each remaining week of the season.  Results are
+#' stored in a data frame, saved in a .rds file with a name like
+#' "model_name-region-season-loso-predictions.rds"
+#' Results have columns indicating the analysis time season and season week,
+#' model name, log scores for each prediction target, the "log score" used
+#' in the competition (adding probabilities from adjacent bins) for each
+#' prediction target, as well as the log of the probability assigned to each
+#' bin.
+#' 
+#' @param all_seasons_left_out character vector of seasons that were in the
+#'   training period, in the format "2000/2001"
+#' @param analysis_time_season character vector of length 1 specifying the
+#'   season to obtain predictions for, in the format "2000/2001"
+#' @param first_analysis_time_season_week integer specifying the first week of
+#'   the season in which to make predictions, using all data up to and
+#'   including that week to make predictions for each following week in the
+#'   season
+#' @param last_analysis_time_season_week integer specifying the last week of
+#'   the season in which to make predictions, using all data up to and including
+#'   that week to make predictions for each following week in the season
+#' @param region string specifying the region to use, in the format "X" or
+#'   "Region k" where k \in {1, ..., 10}
+#' @param prediction_target_var string specifying the name of the variable in
+#'   data for which we want to make predictions
+#' @param incidence_bins a data frame with variables lower and upper defining
+#'   lower and upper endpoints to use in binning incidence
+#' @param incidence_bin_names a character vector with a name for each incidence
+#'   bin
+#' @param n_trajectory_sims integer number of trajectories to simulate
+#' @param simulate_trajectories_function a function to call to simulate
+#'   incidence trajectories.  It will be called with the following arguments:
+#'     * n_sims = number of trajectories to simulate
+#'     * max_prediction_horizon = number of following weeks to simulate
+#'     * data = all available data to use in doing simulation, up to and
+#'         including the analysis time
+#'     * region = region
+#'     * analysis_time_season = analysis_time_season
+#'     * analysis_time_season_week = week of the season at which we are making
+#'         the predictions
+#'     * params = simulate_trajectories_params; additional user-provided
+#'         parameters
+#' @param simulate_trajectories_params optional additional parameters to pass
+#'   to simulate_trajectories_function
+#' @param model_name name of model, stored in the results data frame
+#' @param prediction_save_path path to directory where results will be saved
+#' 
+#' @return none
+#' 
+#' @export
 get_log_scores_via_trajectory_simulation <- function(
-  first_test_season,
   all_seasons_left_out,
   analysis_time_season,
   first_analysis_time_season_week = 10, # == week 40 of year
@@ -420,13 +485,8 @@ get_log_scores_via_trajectory_simulation <- function(
   
   data$time <- as.POSIXct(data$time)
   
-  ## subset data to be only the national data
+  ## subset data to be only the region of interest
   data <- data[data$region == region,]
-  
-  ## Subset data to do estimation using only data up through 2010/2011 season
-  ## 2011 - 2014 are held out for evaluating performance.
-  first_ind_test_season <- min(which(data$season == first_test_season))
-  data <- data[seq_len(first_ind_test_season - 1), , drop = FALSE]
   
   ## data frame to describe predictions
   ## allocate more than enough space up front,
@@ -439,19 +499,6 @@ get_log_scores_via_trajectory_simulation <- function(
     last_analysis_time_season_week = 41)
   
   results_save_row <- 1L
-  
-  ## Load data.  We have to re-load data here because there is a
-  ## different lambda for each analysis_time_season
-  data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
-  
-  data$time <- as.POSIXct(data$time)
-  
-  ## subset data to be only the region of interest
-  data <- data[data$region == region,]
-  
-  ## Subset data to do estimation using only data up through test season
-  first_ind_test_season <- min(which(data$season == first_test_season))
-  data <- data[seq_len(first_ind_test_season - 1), , drop = FALSE]
   
   ## make predictions for each prediction target in the left-out season
   ## for each possible "last observed" week, starting with the last week of the previous season
@@ -722,6 +769,7 @@ get_log_scores_via_trajectory_simulation <- function(
 #' 
 #' @details assumes max inc bin is 13 and bins are 0.1 in size. 
 #' 
+#' @export
 get_inc_bin <- function(inc,
     return_character = TRUE) {
   inc <- round(inc, 1)
@@ -737,11 +785,12 @@ get_inc_bin <- function(inc,
 
 
 #' Calcluation of median value from binned probability distribution
-#'
+#' 
 #' @param probs vector of named probabilities
-#'
+#' 
 #' @return a numeric value
-#'
+#' 
+#' @export
 calc_median_from_binned_probs <- function(probs) {
     ## could do something more intelligent for "none" bin in onset - currently assuming it is all ordered
     cumprob <- cumsum(probs)
@@ -752,6 +801,13 @@ calc_median_from_binned_probs <- function(probs) {
 
 ## interface to R's C API for logspace arithmetic
 
+#' Calculate log(exp(logx) - exp(logy)) in a somewhat numerically stable way.
+#' 
+#' @param logx, logy log-scale numeric values to subtract
+#' 
+#' @return log(exp(logx) - exp(logy)), but more numerically stable
+#' 
+#' @export
 logspace_sub <- function(logx, logy) {
   return(.Call("logspace_sub_C",
     as.numeric(logx),
@@ -759,6 +815,13 @@ logspace_sub <- function(logx, logy) {
     PACKAGE = "awes"))
 }
 
+#' Calculate log(exp(logx) + exp(logy)) in a somewhat numerically stable way.
+#' 
+#' @param logx, logy log-scale numeric values to add
+#' 
+#' @return log(exp(logx) + exp(logy)), but more numerically stable
+#' 
+#' @export
 logspace_add <- function(logx, logy) {
   return(.Call("logspace_add_C",
     as.numeric(logx),
@@ -766,11 +829,26 @@ logspace_add <- function(logx, logy) {
     PACKAGE = "awes"))
 }
 
+#' Calculate log(sum(exp(logx))) in a somewhat numerically stable way.
+#' 
+#' @param logx log-scale numeric vector of values to sum
+#' 
+#' @return log(sum(exp(logx))), but more numerically stable
+#' 
+#' @export
 logspace_sum <- function(logx) {
   dim(logx) <- c(1, length(logx))
   return(logspace_sum_matrix_rows(logx))
 }
 
+#' Calculate logspace summation of matrix rows in a somewhat numerically stable
+#' way.
+#' 
+#' @param logX log-scale numeric matrix of values to sum.
+#' 
+#' @return log(apply(exp(logX), 1, sum)), but more numerically stable
+#' 
+#' @export
 logspace_sum_matrix_rows <- function(logX) {
   return(.Call("logspace_sum_matrix_rows_C",
     as.numeric(logX),
@@ -779,6 +857,15 @@ logspace_sum_matrix_rows <- function(logX) {
     PACKAGE = "awes"))
 }
 
+#' Calculate logspace difference of matrix rows in a somewhat numerically stable
+#' way.
+#' 
+#' @param logX log-scale numeric matrix of values to subtract.  logX must have
+#'   exactly 2 columns.
+#' 
+#' @return log(exp(logX)[, 1] - exp(logX)[, 2]), but more numerically stable
+#' 
+#' @export
 logspace_sub_matrix_rows <- function(logX) {
   if(!is.matrix(logX) || !identical(ncol(logX), 2L))
     stop("logX must be a matrix with 2 columns")
