@@ -4,23 +4,13 @@ all_data_sets <- c("X", paste0("Region-", 1:10))
 all_prediction_horizons <- as.character(seq_len(35))
 all_max_lags <- as.character(c(1L))
 all_seasonality_values <- c("TRUE")
-all_seasons_left_out <- paste0(1997:2010, "/", 1998:2011)
+all_seasons_left_out <- c(paste0(1997:2010, "/", 1998:2011), "none")
 all_first_test_seasons <- "2011/2012"
 
 cores_req <- "4"
 mem_req <- "5000"
 time_req <- "4:00"
 queue_req <- "short"
-
-#all_data_sets <- "Region-6"
-#all_prediction_horizons <- "5"
-all_max_lags <- as.character(c(1L))
-all_seasonality_values <- c("TRUE")
-#all_seasons_left_out <- paste0(2006, "/", 2007)
-#all_first_test_seasons <- "2011/2012"
-all_seasons_left_out <- "none"
-all_first_test_seasons <- "2016/2017"
-
 
 for(data_set in all_data_sets) {
   for(prediction_horizon in all_prediction_horizons) {
