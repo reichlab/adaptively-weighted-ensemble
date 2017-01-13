@@ -799,6 +799,87 @@ calc_median_from_binned_probs <- function(probs) {
 }
 
 
+#' Get the rng substream for an rstream object corresponding to the combination
+#' of prediction method, region, and season left out.  Should be called by all
+#' prediction methods before doing any random number generation.
+#' 
+#' Importantly, by default this function has the side effect of setting RNG to
+#' use rstream with the returned object.  This behavior is determined by the
+#' set_rng argument.  This means the caller doesn't have to worry about doing
+#' anything unless (a) it wants to use more than 1 substream or (b) it is going
+#' to parallelize or do any RNG in a different R session.  Because of strange
+#' behavior in the rstream package, this function can be called only once in a
+#' given R session.
+#' 
+#' @param seed integer seed for rng; the default was randomly generated
+#' @param method character string specifying prediction method
+#'   currently one of "sarima", "kcde", or "kde"
+#' @param region character string specifying region; format "National" or
+#'   "Region k" for k \in {1, ..., 10}
+#' @param season character string specifying season predicted, in format
+#'   "1998/1999"
+#' @param set_rng boolean should rng be set to use rstream with the returned
+#'   rngstream object?
+#' 
+#' @return invisible object of class "rstream.mrg32k3a", but advanced to the
+#' first substream reserved for the given combination of prediction method,
+#' region, and season.  The object has been packed via rstream.packed.
+#' 
+#' @export
+get_rng_substream <- function(
+  seed = 4114043,
+  method,
+  region,
+  season,
+  set_rng = TRUE) {
+  require("rstream")
+  
+  ## Create a data frame with combinations of method, region, and season,
+  ## number of substreams used for each such combination.
+  ## We can add more methods later without causing any problems by appending
+  ## new method names to the END of the "method" vector below.
+  ## Adding new seasons or regions must be done by adding a new set of rows
+  ## to the bottom of the substreams_used data frame (e.g. via bind_rows).
+  substreams_used <- expand.grid(
+    season = paste0(1997:2015, "/", 1998:2016),
+    region = c("National", paste0("Region ", 1:10)),
+    method = c("sarima", "kcde", "kde"),
+    stringsAsFactors = FALSE
+  )
+  substreams_used$num_substreams <- 1
+  ## if any future method uses more than 1 substream, set that here
+  
+  ## substream index for the specified method, region, and season
+  ind <- which(
+    substreams_used$season == season &
+    substreams_used$region == region &
+    substreams_used$method == method)
+  
+  if(!identical(length(ind), 1L)) {
+    stop("Invalid season, region, and/or method.")
+  }
+  
+  ## Create Rstream object and advance past all substreams used by previous
+  ## methods/regions/seasons
+  set.seed(seed)
+  rngstream <- new("rstream.mrg32k3a", seed = sample(1:100000, 6, rep = FALSE))
+  
+  advance_count <- sum(substreams_used$num_substreams[seq_len(ind - 1)])
+  for(i in seq_len(advance_count)) {
+    rstream.nextsubstream(rngstream)
+  }
+  
+  ## set to use rstream package for RNG with rngstream object
+  if(set_rng) {
+    rstream.RNG(rngstream)
+  }
+  
+  ## pack rngstream object and return (invisibly) in case methods want to use
+  rstream.packed(rngstream) <- TRUE
+  invisible(rngstream)
+}
+
+
 ## interface to R's C API for logspace arithmetic
 
 #' Calculate log(exp(logx) - exp(logy)) in a somewhat numerically stable way.
