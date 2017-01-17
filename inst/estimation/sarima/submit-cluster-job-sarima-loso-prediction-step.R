@@ -15,12 +15,11 @@ for(ind in seq_len(nrow(region_season_combos))) {
   region <- region_season_combos$region[ind]
   season <- region_season_combos$season[ind]
   
-  save_path <- "/home/er71a/adaptively-weighted-ensemble/inst/estimation/sarima/fits"
-  output_path <- "/home/er71a/adaptively-weighted-ensemble/inst/estimation/sarima/cluster-estimation-output"
-  lsfoutfilename <- "adaptively-weighted-ensemble-sarima-predict.out"
+  output_path <- "/home/er71a/adaptively-weighted-ensemble/inst/estimation/sarima/cluster-output"
+  lsfoutfilename <- "adaptively-weighted-ensemble-sarima-loso-predict.out"
   
   case_descriptor <- paste0(region, "-", gsub("/", "-", season))
-  filename <- paste0(output_path, "/submit-kcde-estimation-step-", case_descriptor, ".sh")
+  filename <- paste0(output_path, "/submit-sarima-loso-prediction-step-", case_descriptor, ".sh")
   
   requestCmds <- "#!/bin/bash\n"
   requestCmds <- paste0(requestCmds, "#BSUB -n ", cores_req, " # how many cores we want for our job\n",
@@ -36,7 +35,7 @@ for(ind in seq_len(nrow(region_season_combos))) {
     region, " ",
     season,
     "\'  /home/er71a/adaptively-weighted-ensemble/inst/estimation/sarima/sarima-prediction-loso.R ",
-    output_path, "/output-sarima-estimation-step-", case_descriptor, ".Rout"),
+    output_path, "/output-sarima-loso-prediction-step-", case_descriptor, ".Rout"),
     file = filename, append = TRUE)
   
   bsubCmd <- paste0("bsub < ", filename)

@@ -12,6 +12,12 @@ region <- args[1]
 region <- gsub("-", " ", region)
 analysis_time_season <- args[2]
 
+## set up RNG
+get_rng_substream(
+  method = "sarima",
+  region = region,
+  season = analysis_time_season)
+
 ## Parameters used in simulating trajectories via kcde
 simulate_trajectories_sarima_params <- list(
   fits_filepath = "inst/estimation/sarima/fits",
@@ -22,7 +28,6 @@ simulate_trajectories_sarima_params <- list(
 )
 
 get_log_scores_via_trajectory_simulation(
-  first_test_season = "2011/2012",
   all_seasons_left_out = paste0(1997:2010, "/", 1998:2011),
   analysis_time_season = analysis_time_season,
   first_analysis_time_season_week = 10, # == week 40 of year

@@ -850,6 +850,9 @@ get_rng_substream <- function(
   ## if any future method uses more than 1 substream, set that here
   
   ## substream index for the specified method, region, and season
+  if(identical(region, "X")) {
+    region <- "National"
+  }
   ind <- which(
     substreams_used$season == season &
     substreams_used$region == region &

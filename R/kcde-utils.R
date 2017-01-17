@@ -35,9 +35,10 @@ simulate_trajectories_kcde <- function(
 ) {
   require(forecast) # for BoxCox transformations
   
-  if(identical(analysis_time_season, "2016/2017")) {
-    ## if we're doing prediction for the actual competition,
-    ## get fit obtained by leaving out no seasons
+  if(as.integer(substr(analysis_time_season, 1, 4)) >=
+      as.integer(substr(params$first_test_season, 1, 4))) {
+    ## if we're doing prediction during the test period,
+    ## get fit obtained using all training data
     analysis_time_season <- "none"
   }
   
