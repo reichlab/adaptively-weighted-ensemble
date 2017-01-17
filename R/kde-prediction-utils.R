@@ -71,7 +71,7 @@ predict_kde_peak_week <- function(fm, n_sim) {
 #'
 #' @param fm output from fit_kde_log_peak_week_inc()
 #' @param bins cutpoints for incidence bins 
-#' @param bin_names vector of bin names
+#' @param bin_names vector of bin names, length 1 fewer than length(bins)
 #' @param n_sim number of draws from predictive distribution to return
 #'
 #' @return vector of probabilities representing the predictive distribution of NOT LOG peak week incidence, 
@@ -83,7 +83,7 @@ predict_kde_log_peak_week_inc <- function(fm, bins, bin_names, n_sim) {
     x_new <- rnorm(n_sim, 
                    mean=base::sample(log_peak_inc, size = n_sim, replace = TRUE), 
                    sd=kde_peak_week_inc$bw)
-    pred_peaks_binned <- cut(exp(x_new), breaks=bins)
+    pred_peaks_binned <- cut(exp(x_new), breaks=bins, right=FALSE) ## CDC incidence targets are [a,b)
     peak_inc_bin_probs <- table(pred_peaks_binned)/n_sim
     
     names(peak_inc_bin_probs) <- bin_names
@@ -96,7 +96,7 @@ predict_kde_log_peak_week_inc <- function(fm, bins, bin_names, n_sim) {
 #' @param fm a GAM fit for weekly incidence
 #' @param season_weeks season_weeks to predict for
 #' @param bins cutpoints for incidence bins 
-#' @param bin_names vector of bin names
+#' @param bin_names vector of bin names, length 1 fewer than length(bins)
 #' @param n_sim number of draws from predictive distribution to return
 #'
 #' @return matrix of probabilities representing the predictive distribution of NOT LOG scale weekly incidence, 
@@ -135,7 +135,7 @@ predict_kde_log_weekly_inc <- function(fm, season_weeks, bins, bin_names, n_sim)
     weekly_inc_bin_probs <- apply(tmp, 
                                   MARGIN=1,
                                   FUN = function(x) {
-                                      binned_inc <- cut(exp(x), breaks=bins)
+                                      binned_inc <- cut(exp(x), breaks=bins, right=FALSE)
                                       table(binned_inc)/n_sim
                                   })
     rownames(weekly_inc_bin_probs) <- bin_names

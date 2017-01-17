@@ -523,6 +523,8 @@ get_log_scores_via_direct_simulation <- function(
     ## Only do something if there is something to predict in the season that would be held out
     if(!all(is.na(data$weighted_ili[data$season == analysis_time_season]))) {
         ## load KDE fit
+        ## NOTE: assumes region is either "X" or "Region k" format
+        reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
         kde_fit <- readRDS(file = paste0(
             fits_path,
             "kde-",
@@ -561,10 +563,8 @@ get_log_scores_via_direct_simulation <- function(
                                           "peak_week")
         
         ## Get log scores for peak week incidence
-        
-        #### BIN DEFINTION NEEDS TO MOVE FROM CUTPOINT TO DATA-FRAME! 
         peak_week_inc_preds <- predict_kde_log_peak_week_inc(kde_fit$log_peak_week_inc, 
-                                                             bins=inc_bins,
+                                                             bins=c(0, incidence_bins$upper),
                                                              bin_names=incidence_bin_names, 
                                                              n_sim)
         peak_inc_bin_log_probs <- log(peak_week_inc_preds)
@@ -581,7 +581,7 @@ get_log_scores_via_direct_simulation <- function(
         ## make prediction for this analysis_time_season
         weekly_inc_preds <- predict_kde_log_weekly_inc(fm = kde_fit$log_weekly_inc, 
                                                        season_weeks = 1:53, 
-                                                       bins = inc_bins, 
+                                                       bins = c(0, incidence_bins$upper), 
                                                        bin_names = incidence_bin_names,
                                                        n_sim = n_sim)
         
