@@ -478,11 +478,13 @@ get_log_scores_via_direct_simulation <- function(
     prediction_target_var,
     incidence_bins,
     incidence_bin_names,
-    n_trajectory_sims,
+    n_sims,
     model_name,
     fits_path,
     prediction_save_path
 ) {
+    require(dplyr)
+    
     ## Load data.  The only reason to do this here is to know what the dimensions
     ## of the results data frame should be.
     data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
@@ -502,8 +504,6 @@ get_log_scores_via_direct_simulation <- function(
         first_analysis_time_season_week = 10,
         last_analysis_time_season_week = 41)
     
-    results_save_row <- 1L
-    
     ## make predictions for each prediction target in the left-out season
     ## for each possible "last observed" week, starting with the last week of the previous season
     
@@ -521,7 +521,7 @@ get_log_scores_via_direct_simulation <- function(
     )
     
     ## Only do something if there is something to predict in the season that would be held out
-    if(!all(is.na(data$weighted_ili[data$season == analysis_time_season]))) {
+    if(!all(is.na(data[data$season == analysis_time_season, prediction_target_var]))) {
         ## load KDE fit
         ## NOTE: assumes region is either "X" or "Region k" format
         reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
@@ -537,27 +537,27 @@ get_log_scores_via_direct_simulation <- function(
         
         ## Get predictions and log scores for onset
         onset_week_bins <- c(as.character(10:42), "none")
-        onset_week_preds <- predict_kde_onset_week(kde_fit$onset_week, n_sim)
-        onset_bin_log_probs <- log(onset_week_preds)
-        predictions_df[results_save_row, paste0("onset_bin_", onset_week_bins, "_log_prob")] <-
+        onset_week_preds <- predict_kde_onset_week(kde_fit$onset_week, n_sims)
+        onset_bin_log_probs <- log(onset_week_preds[onset_week_bins])
+        predictions_df[, paste0("onset_bin_", onset_week_bins, "_log_prob")] <-
             onset_bin_log_probs
-        predictions_df[results_save_row, "onset_log_score"] <-
+        predictions_df[, "onset_log_score"] <-
             onset_bin_log_probs[ as.character(observed_seasonal_quantities$observed_onset_week) ]
-        predictions_df[results_save_row, "onset_competition_log_score"] <-
+        predictions_df[, "onset_competition_log_score"] <-
             compute_competition_log_score(onset_bin_log_probs,
                                           as.character(observed_seasonal_quantities$observed_onset_week),
                                           "onset_week")
        
         ## Get log scores for peak week
         peak_week_bins <- as.character(10:42)
-        peak_week_preds <- predict_kde_peak_week(kde_fit$peak_week, n_sim)
-        peak_week_bin_log_probs <- log(peak_week_preds)
+        peak_week_preds <- predict_kde_peak_week(kde_fit$peak_week, n_sims) ## returns probs for all weeks
+        peak_week_bin_log_probs <- log(peak_week_preds[peak_week_bins]) ## subset to only competition weeks
         names(peak_week_bin_log_probs) <- as.character(peak_week_bins)
-        predictions_df[results_save_row, paste0("peak_week_bin_", peak_week_bins, "_log_prob")] <-
+        predictions_df[, paste0("peak_week_bin_", peak_week_bins, "_log_prob")] <-
             peak_week_bin_log_probs
-        predictions_df[results_save_row, "peak_week_log_score"] <-
+        predictions_df[, "peak_week_log_score"] <-
             logspace_sum(peak_week_bin_log_probs[ as.character(observed_seasonal_quantities$observed_peak_week)] )
-        predictions_df[results_save_row, "peak_week_competition_log_score"] <-
+        predictions_df[, "peak_week_competition_log_score"] <-
             compute_competition_log_score(peak_week_bin_log_probs,
                                           as.character(observed_seasonal_quantities$observed_peak_week),
                                           "peak_week")
@@ -566,14 +566,14 @@ get_log_scores_via_direct_simulation <- function(
         peak_week_inc_preds <- predict_kde_log_peak_week_inc(kde_fit$log_peak_week_inc, 
                                                              bins=c(0, incidence_bins$upper),
                                                              bin_names=incidence_bin_names, 
-                                                             n_sim)
+                                                             n_sims)
         peak_inc_bin_log_probs <- log(peak_week_inc_preds)
-        predictions_df[results_save_row, paste0("peak_inc_bin_", incidence_bin_names, "_log_prob")] <-
+        predictions_df[, paste0("peak_inc_bin_", incidence_bin_names, "_log_prob")] <-
             peak_inc_bin_log_probs
-        predictions_df[results_save_row, "peak_inc_log_score"] <-
+        predictions_df[, "peak_inc_log_score"] <-
             peak_inc_bin_log_probs[
                 as.character(observed_seasonal_quantities$observed_peak_inc_bin)]
-        predictions_df[results_save_row, "peak_inc_competition_log_score"] <-
+        predictions_df[, "peak_inc_competition_log_score"] <-
             compute_competition_log_score(peak_inc_bin_log_probs,
                                           observed_seasonal_quantities$observed_peak_inc_bin,
                                           "peak_inc")
@@ -583,7 +583,7 @@ get_log_scores_via_direct_simulation <- function(
                                                        season_weeks = 1:53, 
                                                        bins = c(0, incidence_bins$upper), 
                                                        bin_names = incidence_bin_names,
-                                                       n_sim = n_sim)
+                                                       n_sim = n_sims)
         
         
         ## figure out weeks for looping
@@ -592,11 +592,12 @@ get_log_scores_via_direct_simulation <- function(
                         to = min(last_analysis_time_season_week, last_analysis_time_season_week_in_data) - 1)
         
         ## loop over all times in season
+        results_save_row <- 1L
         for(analysis_time_season_week in time_seq) {
 
             ## calculate current time 
-            analysis_time_ind <- which(dat$season == analysis_time_season &
-                                           dat$season_week == analysis_time_season_week)
+            analysis_time_ind <- which(data$season == analysis_time_season &
+                                           data$season_week == analysis_time_season_week)
             
             ## Predictions for incidence in an individual week at prediction horizon ph = 1, ..., 4
             for(ph in 1:4) {
@@ -605,13 +606,12 @@ get_log_scores_via_direct_simulation <- function(
                 observed_ph_inc_bin <- get_inc_bin(observed_ph_inc, return_character = TRUE)
                 
                 if(!is.na(observed_ph_inc)) {
-                    made_predictions <- TRUE
-                    
+
                     ## get sampled incidence values at prediction horizon that are usable/not NAs
                     pred_week_idx <- analysis_time_season_week + ph
-                    ph_inc_preds <- weekly_inc_preds[, pred_week_idx]
-                    ph_inc_bin_preds <- get_inc_bin(ph_inc_preds, return_character = TRUE)
-                    
+                    ph_inc_bin_preds <- weekly_inc_preds[, pred_week_idx]
+                    ## removed call to get_inc_bin() b/c predict_kde_log_weekly_inc() does it for us.
+
                     ## get log score
                     ph_inc_bin_log_probs <- log(ph_inc_bin_preds)
                     predictions_df[results_save_row, paste0("ph_", ph, "_inc_bin_", incidence_bin_names, "_log_prob")] <-

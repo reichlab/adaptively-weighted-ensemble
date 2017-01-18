@@ -19,22 +19,29 @@ foreach(reg=region_strings) %dopar%
                     path = "inst/estimation/kde/fits/")
 
 ## make leave-one-season-out predictions for training seasons
-foreach(region, analysis_time_season)
-get_log_scores_via_direct_simulation(
-    first_test_season = "2011/2012",
-    all_seasons_left_out = paste0(1997:2010, "/", 1998:2011),
-    analysis_time_season = analysis_time_season,
-    first_analysis_time_season_week = 10, # == week 40 of year
-    last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
-    region = region,
-    prediction_target_var = "weighted_ili",
-    incidence_bins = data.frame(
-        lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
-        upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
-    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1)),
-    n_trajectory_sims = 100000,
-    model_name = "kde",
-    prediction_save_path = "inst/estimation/loso-predictions"
-)
-
+foreach(reg=region_strings) %dopar% {
+    # ## for debugging
+    # debug(get_log_scores_via_direct_simulation)
+    # region = region_strings[1]
+    # analysis_time_season = "2000/2001"
+    analysis_time_seasons <- paste0(1997:2010, "/", 1998:2011)
+    for(analysis_time_season in analysis_time_seasons)
+        get_log_scores_via_direct_simulation(
+            all_seasons_left_out = paste0(1997:2010, "/", 1998:2011),
+            analysis_time_season = analysis_time_season,
+            first_analysis_time_season_week = 10, # == week 40 of year
+            last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
+            region = reg,
+            prediction_target_var = "weighted_ili",
+            incidence_bins = data.frame(
+                lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+                upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+            incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1)),
+            n_sims = 10000,
+            model_name = "kde",
+            fits_path = "inst/estimation/kde/fits/",
+            prediction_save_path = "inst/estimation/loso-predictions"
+        )
+}
+    
 source("inst/estimation/kde/check-kde-predictions.R")
