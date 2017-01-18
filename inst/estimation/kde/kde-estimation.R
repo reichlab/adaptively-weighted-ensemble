@@ -3,29 +3,48 @@
 ## 1/10/2017 - Evan Ray - moved to awes repository, minor modifications
 ## 1/11/2017 - Nicholas Reich - modified to create loso fits/predictions
 ## 1/16/2017 - Nicholas Reich - modified for standardized LOSO prediction function
+## 1/18/2017 - Nicholas Reich - random seeds and re-organizing of code
+
+setwd("~/Documents/research-versioned/adaptively-weighted-ensemble/")
 
 library(awes)
+library(rstream)
 
+## setup
 fludat <- read.csv('data-raw/allflu-cleaned.csv')
-
 region_strings <- c("X", paste("Region", 1:10))
+fit_path <- "inst/estimation/kde/fits/"
+method <- "kde"
+analysis_time_seasons <- paste0(1997:2010, "/", 1998:2011)
 
-## fit LOSO models on training seasona
+## setup for random seeds
+rngstream <- get_initial_rng_substream(seed=9179) ## seed generated on random.org
+
 library(doMC)
 registerDoMC(4)
-foreach(reg=region_strings) %dopar%
+foreach(reg=region_strings) %dopar% {
+    
+    ## fit LOSO models on training seasona
+    # reg = region_strings[1]
     fit_region_kdes(fludat, region=reg,
                     first_test_year = 2011, first_test_week = 31,
-                    path = "inst/estimation/kde/fits/")
+                    path = fit_path)
 
-## make leave-one-season-out predictions for training seasons
-foreach(reg=region_strings) %dopar% {
+    ## make leave-one-season-out predictions for training seasons
     # ## for debugging
     # debug(get_log_scores_via_direct_simulation)
     # region = region_strings[1]
     # analysis_time_season = "2000/2001"
-    analysis_time_seasons <- paste0(1997:2010, "/", 1998:2011)
-    for(analysis_time_season in analysis_time_seasons)
+    for(analysis_time_season in analysis_time_seasons) {
+        ## set random seed from substream
+        get_rng_substream(
+            rngstream = rngstream,
+            method = method,
+            region = reg,
+            season = analysis_time_season,
+            set_rng = TRUE)
+        
+        ## get and save log scores
         get_log_scores_via_direct_simulation(
             all_seasons_left_out = paste0(1997:2010, "/", 1998:2011),
             analysis_time_season = analysis_time_season,
@@ -39,9 +58,10 @@ foreach(reg=region_strings) %dopar% {
             incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1)),
             n_sims = 10000,
             model_name = "kde",
-            fits_path = "inst/estimation/kde/fits/",
+            fits_path = fit_path,
             prediction_save_path = "inst/estimation/loso-predictions"
         )
+    }
 }
     
 source("inst/estimation/kde/check-kde-predictions.R")
