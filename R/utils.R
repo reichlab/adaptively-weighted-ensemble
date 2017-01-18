@@ -223,7 +223,7 @@ compute_competition_log_score <- function(bin_log_probs,
   prediction_target) {
   ## validate probabilities sum to 1 and if not, force them to, with warning
   if(sum(exp(bin_log_probs)) != 1) {
-    warning(paste(prediction_target, "probabilities to not sum to 1. automatically adjusting."))   
+    warning(paste(prediction_target, "probabilities do not sum to 1. automatically adjusting."))   
     bin_probs <- exp(bin_log_probs)
     bin_log_probs <- log(bin_probs/sum(bin_probs))
   }
