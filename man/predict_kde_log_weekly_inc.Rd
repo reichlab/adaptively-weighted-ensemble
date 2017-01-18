@@ -13,7 +13,7 @@ predict_kde_log_weekly_inc(fm, season_weeks, bins, bin_names, n_sim)
 
 \item{bins}{cutpoints for incidence bins}
 
-\item{bin_names}{vector of bin names}
+\item{bin_names}{vector of bin names, length 1 fewer than length(bins)}
 
 \item{n_sim}{number of draws from predictive distribution to return}
 }
