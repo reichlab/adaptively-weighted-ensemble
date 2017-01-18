@@ -799,6 +799,32 @@ calc_median_from_binned_probs <- function(probs) {
 }
 
 
+#' Get the initial rng substream for an rstream object.  Should be called by all
+#' prediction methods before doing any random number generation.
+#' 
+#' This function DOES NOT set RNG to use rstream with the returned object.
+#' Because of strange behavior in the rstream package, this function can be
+#' called only once in a given R session.
+#' 
+#' @param seed integer seed for rng; the default was randomly generated
+#' 
+#' @return object of class "rstream.mrg32k3a".  The object has been packed via
+#'   rstream.packed.
+#' 
+#' @export
+get_initial_rng_substream <- function(
+  seed = 4114043) {
+  require("rstream")
+  
+  set.seed(seed)
+  rngstream <- new("rstream.mrg32k3a", seed = sample(1:100000, 6, rep = FALSE))
+  
+  ## pack rngstream object and return (invisibly) in case methods want to use
+  rstream.packed(rngstream) <- TRUE
+  return(rngstream)
+}
+
+
 #' Get the rng substream for an rstream object corresponding to the combination
 #' of prediction method, region, and season left out.  Should be called by all
 #' prediction methods before doing any random number generation.
@@ -808,9 +834,11 @@ calc_median_from_binned_probs <- function(probs) {
 #' set_rng argument.  This means the caller doesn't have to worry about doing
 #' anything unless (a) it wants to use more than 1 substream or (b) it is going
 #' to parallelize or do any RNG in a different R session.  Because of strange
-#' behavior in the rstream package, this function can be called only once in a
-#' given R session.
+#' behavior in the rstream package, this function can be called at most once
+#' without the rngstream argument in a given R session.
 #' 
+#' @param rngstream (optional) object of class "rstream.mrg32k3a" which will be
+#'   advanced from its current state.
 #' @param seed integer seed for rng; the default was randomly generated
 #' @param method character string specifying prediction method
 #'   currently one of "sarima", "kcde", or "kde"
@@ -827,6 +855,7 @@ calc_median_from_binned_probs <- function(probs) {
 #' 
 #' @export
 get_rng_substream <- function(
+  rngstream,
   seed = 4114043,
   method,
   region,
@@ -864,8 +893,12 @@ get_rng_substream <- function(
   
   ## Create Rstream object and advance past all substreams used by previous
   ## methods/regions/seasons
-  set.seed(seed)
-  rngstream <- new("rstream.mrg32k3a", seed = sample(1:100000, 6, rep = FALSE))
+  if(missing(rngstream)) {
+    set.seed(seed)
+    rngstream <- new("rstream.mrg32k3a", seed = sample(1:100000, 6, rep = FALSE))
+  } else {
+    rstream.packed(rngstream) <- FALSE
+  }
   
   advance_count <- sum(substreams_used$num_substreams[seq_len(ind - 1)])
   for(i in seq_len(advance_count)) {

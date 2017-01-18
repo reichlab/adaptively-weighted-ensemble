@@ -6,9 +6,13 @@
 of prediction method, region, and season left out.  Should be called by all
 prediction methods before doing any random number generation.}
 \usage{
-get_rng_substream(seed = 4114043, method, region, season, set_rng = TRUE)
+get_rng_substream(rngstream, seed = 4114043, method, region, season,
+  set_rng = TRUE)
 }
 \arguments{
+\item{rngstream}{(optional) object of class "rstream.mrg32k3a" which will be
+advanced from its current state.}
+
 \item{seed}{integer seed for rng; the default was randomly generated}
 
 \item{method}{character string specifying prediction method
@@ -34,7 +38,7 @@ use rstream with the returned object.  This behavior is determined by the
 set_rng argument.  This means the caller doesn't have to worry about doing
 anything unless (a) it wants to use more than 1 substream or (b) it is going
 to parallelize or do any RNG in a different R session.  Because of strange
-behavior in the rstream package, this function can be called only once in a
-given R session.
+behavior in the rstream package, this function can be called at most once
+without the rngstream argument in a given R session.
 }
 
