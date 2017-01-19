@@ -442,8 +442,6 @@ predict_region_kde <- function(data, region, path, n_sim) {
 #' prediction target, as well as the log of the probability assigned to each
 #' bin.
 #' 
-#' @param all_seasons_left_out character vector of seasons that were in the
-#'   training period, in the format "2000/2001"
 #' @param analysis_time_season character vector of length 1 specifying the
 #'   season to obtain predictions for, in the format "2000/2001"
 #' @param first_analysis_time_season_week integer specifying the first week of
@@ -470,7 +468,6 @@ predict_region_kde <- function(data, region, path, n_sim) {
 #' 
 #' @export
 get_log_scores_via_direct_simulation <- function(
-    all_seasons_left_out,
     analysis_time_season,
     first_analysis_time_season_week = 10, # == week 40 of year
     last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
