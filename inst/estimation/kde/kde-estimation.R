@@ -5,7 +5,8 @@
 ## 1/16/2017 - Nicholas Reich - modified for standardized LOSO prediction function
 ## 1/18/2017 - Nicholas Reich - random seeds and re-organizing of code
 
-setwd("~/Documents/research-versioned/adaptively-weighted-ensemble/")
+## set to root directory of package code
+setwd("~/Documents/code_versioned/adaptively-weighted-ensemble/")
 
 library(awes)
 library(rstream)
