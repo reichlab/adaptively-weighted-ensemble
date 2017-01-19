@@ -649,7 +649,6 @@ get_log_scores_via_direct_simulation <- function(
     season_str <- gsub("/", "-", analysis_time_season)
     saveRDS(predictions_df,
             file = paste0(prediction_save_path,
-                          "/",
                           model_name, "-", region_str, "-", season_str, "-loso-predictions.rds"))
 }
 

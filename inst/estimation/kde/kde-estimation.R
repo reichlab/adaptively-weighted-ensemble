@@ -58,7 +58,7 @@ foreach(reg=region_strings) %dopar% {
             n_sims = 100000,
             model_name = "kde",
             fits_path = fit_path,
-            prediction_save_path = "inst/estimation/loso-predictions"
+            prediction_save_path = "inst/estimation/loso-predictions/"
         )
     }
 }
