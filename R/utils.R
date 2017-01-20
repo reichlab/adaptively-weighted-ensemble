@@ -612,7 +612,7 @@ get_log_scores_via_trajectory_simulation <- function(
       
       ## Get onset week for each simulated trajectory
       onset_week_by_sim_ind <-
-        apply(subset_trajectory_samples, 1, function(trajectory) {
+        apply(binned_subset_trajectory_samples, 1, function(trajectory) {
           get_onset_week(
             incidence_trajectory = trajectory,
             baseline = 
