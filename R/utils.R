@@ -616,7 +616,7 @@ get_log_scores_via_trajectory_simulation <- function(
           get_onset_week(
             incidence_trajectory = trajectory,
             baseline = 
-              get_onset_baseline(region = region, season = "2015/2016"),
+              get_onset_baseline(region = region, season = analysis_time_season),
             onset_length = 3L,
             first_season_week = 31,
             weeks_in_first_season_year = weeks_in_first_season_year
