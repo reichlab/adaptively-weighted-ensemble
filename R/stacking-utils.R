@@ -104,6 +104,8 @@ assemble_loso_predictions <- function(
 #'   1 for some logging
 #' 
 #' @return a model stacking fit
+#' 
+#' @export
 fit_stacked_model <- function(
   regions,
   prediction_target,
@@ -207,6 +209,8 @@ fit_stacked_model <- function(
 #'   to return only the best weights examined or "all" to return the full grid
 #' 
 #' @return model weights
+#' 
+#' @export
 fit_unregularized_stacked_model <- function(
   component_model_log_scores,
   method = "em",
