@@ -4,15 +4,12 @@
 \alias{get_log_scores_via_direct_simulation}
 \title{Get log scores and full predictive distributions for each prediction target}
 \usage{
-get_log_scores_via_direct_simulation(all_seasons_left_out, analysis_time_season,
+get_log_scores_via_direct_simulation(analysis_time_season,
   first_analysis_time_season_week = 10, last_analysis_time_season_week = 41,
-  region, prediction_target_var, incidence_bins, incidence_bin_names,
-  n_trajectory_sims, model_name, fits_path, prediction_save_path)
+  region, prediction_target_var, incidence_bins, incidence_bin_names, n_sims,
+  model_name, fits_path, prediction_save_path)
 }
 \arguments{
-\item{all_seasons_left_out}{character vector of seasons that were in the
-training period, in the format "2000/2001"}
-
 \item{analysis_time_season}{character vector of length 1 specifying the
 season to obtain predictions for, in the format "2000/2001"}
 
@@ -37,13 +34,13 @@ lower and upper endpoints to use in binning incidence}
 \item{incidence_bin_names}{a character vector with a name for each incidence
 bin}
 
+\item{n_sims}{integer number of samples to simulate}
+
 \item{model_name}{name of model, stored in the results data frame}
 
 \item{fits_path}{path to directory where fitted models are stored}
 
 \item{prediction_save_path}{path to directory where results will be saved}
-
-\item{n_sims}{integer number of samples to simulate}
 }
 \value{
 none
