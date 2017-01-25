@@ -69,4 +69,4 @@ weights <- foreach(region = c("National", paste0("Region", 1:10))) %dopar% {
 weights <- rbind.fill(weights)
 weights <- weights[, c("region", "prediction_target", "analysis_time_season_week", "kde", "kcde", "sarima")]
 
-saveRDS(weights, "inst/estimation/stacking/fits-unregularized/unregularized_weights.rds")
+saveRDS(weights, "inst/estimation/em-stacking/fits/em_weights.rds")
