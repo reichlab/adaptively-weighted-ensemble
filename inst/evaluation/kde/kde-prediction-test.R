@@ -48,6 +48,9 @@ foreach(reg=region_strings) %dopar% {
     
     ## since KDE predictions are only based on historical data, we can copy predictions from the first season
     for(season in seasons_to_copy){
+        if(identical(reg, "X")) {
+          reg <- "National"
+        }
         orig_file <- paste0(prediction_path, method, "-", gsub(" ", "", reg), "-2011-2012-loso-predictions.rds")
         new_file <- paste0(prediction_path, method, "-", gsub(" ", "", reg), "-", season, "-loso-predictions.rds")
         system(paste("cp", orig_file, new_file))
