@@ -13,26 +13,36 @@ output: pdf_document
 
 The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. In recent years, these "ensemble" forecasting approaches are frequently used among the top methods in prediction challenges. 
 
-Ensembles are a natural choice for noisy and complex interdependent systems that evolve over time. In this setting, no one model is likely to be able to predict the full dynamics of a complex system. Instead "specialist" models could be relied on to capture distinct features or signals from a system which, when combined, represent a complete range of possible outcomes. 
+Ensembles are a natural choice for noisy and complex interdependent systems that evolve over time. In this setting, no one model is likely to be able to predict the full dynamics of a complex system. Instead "specialist" or "component" models could be relied on to capture distinct features or signals from a system which, when combined, represent a complete range of possible outcomes. 
 
-Using specialist methods that generate predictive densities for outcomes of interest, we have developed a feature-weighted density ensemble method that estimates model weights as functions of observed data. Our approach fuses aspects of different ensemble methods: it uses model "stacking" \cite{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \cite{Madigan1998}, and uses feature weighting from observed data \cite{Sill2009}. 
-
-Mention gradient tree boosting too.
+Using component methods that generate predictive densities for outcomes of interest, we have developed a feature-weighted density ensemble method that estimates model weights as functions of observed data. Our approach fuses aspects of different ensemble methods: it uses model "stacking" \cite{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \cite{Madigan1998}, and estimates model weights based on features of the system \cite{Sill2009} using gradient tree boosting [[need citation]]. 
 
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind. Even in today's modern and scientific world, the spectre of a global pandemic appears to be a real possibility. The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics. With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies." [ADD CITATION: http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm]
 
 The observation that motivated the development of the method presented in this manuscript was seeing how certain prediction models for infectious disease consistently performed better than other models at certain times of year. We set out to determine whether past model performance could improve predictions using feature-weighted model stacking. We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy.
 
-Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several features of the influenza season at each week during the season. Specifically, we aimed to predict three values defined by the US Centers for Disease Control and Prevention (US CDC) that define important features of an epidemic season: 
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several features of the influenza season at each week during the season. 
 
- 1. onset week: the week at which the incidence first exceeds and remains above a region and season specific threshold,
- 2. peak week: the week at which the maximum incidence for the season is observed,
- 3. peak incidence: the maximum observed weighted influenza-like illness (wILI) measure in a season.
+
 
 ## Methods
 
 ### Data
+
+We obtained publicly available data on seasonal influenza activity in the United States from the U.S. Centers for Disease Control and Prevention (CDC). 
+For each of the 10 Health and Human Services regions in the country, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
+The wILI for a particular region is calculated by taking the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
+During the CDC-defined influenza season (between MMWR week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
+This includes new wILI data from as recent as two weeks prior, as well as updates to previously reported numbers as new data becomes available. 
+For this analysis, we use only the final reported wILI
+
+
+Specifically, we aimed to predict three values defined by the US Centers for Disease Control and Prevention (US CDC) that define important features of an epidemic season: 
+
+ 1. onset week: the week at which the incidence first exceeds and remains above a region and season specific threshold,
+ 2. peak week: the week at which the maximum incidence for the season is observed,
+ 3. peak incidence: the maximum observed weighted influenza-like illness (wILI) measure in a season.
 
 The season onset is defined as the first week of the season for which incidence in the following three weeks is greater than or equal to a threshold that is specific to the region and season.  This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations (cite https://www.cdc.gov/flu/weekly/overview.htm).  The CDC provides historical threshold values for each region going back to the 2007/2008 season (cite https://github.com/cdcepi/FluSight-forecasts/blob/master/wILI_Baseline.csv); for the purposes of training our models, we have used region-specific average baseline values for the earlier seasons.
 
