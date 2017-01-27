@@ -32,7 +32,7 @@ for(reg in region_strings) {
     
     p <- ggplot(tmp_long, aes(x=analysis_time_season_week, y=log_score)) +
         geom_line(aes(color=analysis_time_season)) +
-        facet_grid(.~factor(metric)) +
+        facet_grid(.~metric) +
         geom_smooth(se=FALSE, color="black") +
         ylim(-10, 0)
     print(p)

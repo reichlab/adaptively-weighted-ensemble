@@ -23,7 +23,7 @@ predict_kde_onset_week <- function(fm, n_sim) {
     ## removing early/late onset draws
     idx_out_of_bounds <- which(pred_onsets_rounded<=0 | pred_onsets_rounded>52)
     if(length(idx_out_of_bounds)>0){
-      pred_onsets_rounded[-idx_out_of_bounds] 
+      pred_onsets_rounded <- pred_onsets_rounded[-idx_out_of_bounds] 
     }
     
     onsets_binned <- tabulate(pred_onsets_rounded, nbins=52)
@@ -113,9 +113,8 @@ predict_kde_log_weekly_inc <- function(fm, season_weeks, bins, bin_names, n_sim)
     
     ## simulate replicate beta vectors from posterior...
     Cv <- chol(Vb)
-    n_rep=10000
     nb <- length(beta)
-    br <- t(Cv) %*% matrix(rnorm(n_rep*nb),nb,n_rep) + beta
+    br <- t(Cv) %*% matrix(rnorm(n_sim*nb),nb,n_sim) + beta
     
     ## turn these into replicate linear predictors...
     Xp <- predict(fm,newdata=data.frame(season_week=season_weeks),type="lpmatrix")
@@ -126,7 +125,7 @@ predict_kde_log_weekly_inc <- function(fm, season_weeks, bins, bin_names, n_sim)
     ## and estimated scale...
     tmp <- matrix(rnorm(length(fv), mean=fv, sd=sqrt(fm$sig2)), nrow=nrow(fv), ncol(fv))
     
-    #plot(rep(xp,n_rep),exp(tmp),pch=".", ylim=c(-1, 10)) ## plotting replicates
+    #plot(rep(xp,n_sim),exp(tmp),pch=".", ylim=c(-1, 10)) ## plotting replicates
     #points(data$season_week,data$weighted_ili,pch=19,cex=.5) ## and original data
     
     ## compute 95% prediction interval...

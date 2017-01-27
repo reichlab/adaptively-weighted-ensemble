@@ -19,7 +19,7 @@ method <- "kde"
 analysis_time_seasons <- paste0(1997:2010, "/", 1998:2011)
 
 ## setup for random seeds
-rngstream <- get_initial_rng_substream(seed=9179) ## seed generated on random.org
+rngstream <- get_initial_rng_substream()
 
 library(doMC)
 registerDoMC(11)
@@ -30,7 +30,7 @@ foreach(reg=region_strings) %dopar% {
     fit_region_kdes(fludat, region=reg,
                     first_test_year = 2011, first_test_week = 31,
                     path = fit_path)
-
+    
     ## make leave-one-season-out predictions for training seasons
     # ## for debugging
     # debug(get_log_scores_via_direct_simulation)
