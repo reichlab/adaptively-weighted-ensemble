@@ -647,8 +647,8 @@ get_log_scores_via_trajectory_simulation <- function(
         onset_week_bins,
         function(bin_name) {
           sum(onset_week_by_sim_ind == bin_name)
-        })) -
-        log(length(onset_week_by_sim_ind))
+        }))
+      onset_bin_log_probs <- onset_bin_log_probs - logspace_sum(onset_bin_log_probs)
       predictions_df[results_save_row, paste0("onset_bin_", onset_week_bins, "_log_prob")] <-
         onset_bin_log_probs
       predictions_df[results_save_row, "onset_log_score"] <-
@@ -664,8 +664,8 @@ get_log_scores_via_trajectory_simulation <- function(
         peak_week_bins,
         function(bin_name) {
           sum(peak_weeks_by_sim_ind == bin_name)
-        })) -
-        log(length(peak_weeks_by_sim_ind))
+        }))
+      peak_week_bin_log_probs <- peak_week_bin_log_probs - logspace_sum(peak_week_bin_log_probs)
       names(peak_week_bin_log_probs) <- as.character(peak_week_bins)
       predictions_df[results_save_row, paste0("peak_week_bin_", peak_week_bins, "_log_prob")] <-
         peak_week_bin_log_probs
@@ -681,8 +681,8 @@ get_log_scores_via_trajectory_simulation <- function(
         incidence_bin_names,
         function(bin_name) {
           sum(peak_inc_bin_by_sim_ind == as.numeric(bin_name))
-        })) -
-        log(length(peak_inc_bin_by_sim_ind))
+        }))
+      peak_inc_bin_log_probs <- peak_inc_bin_log_probs - logspace_sum(peak_inc_bin_log_probs)
       predictions_df[results_save_row, paste0("peak_inc_bin_", incidence_bin_names, "_log_prob")] <-
         peak_inc_bin_log_probs
       predictions_df[results_save_row, "peak_inc_log_score"] <-

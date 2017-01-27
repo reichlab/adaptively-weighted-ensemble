@@ -46,7 +46,7 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
     ## subset to region of interest
     dat <- data[which(data$region == region),]
     ## subset to include only times before first test season and week
-    idx <- which(as.Date(as.character(dat$time)) <= MMWRweek2Date(first_test_year, first_test_week))
+    idx <- which(as.Date(as.character(dat$time)) < MMWRweek2Date(first_test_year, first_test_week))
     dat <- dat[idx,]
     
     ## assumes region is either "X" or "Region k" format
@@ -98,28 +98,33 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
 fit_kde_onset_week <- function(data) {
     require(dplyr)
     ### get onset
-    onsets <- data %>% group_by(season) %>%
-        mutate(baseline = get_onset_baseline(region = region, season = season),
-               ili_lag1 = lag(weighted_ili, 1),
-               ili_lag2 = lag(weighted_ili, 2),
-               ili_lag3 = lag(weighted_ili, 3)) %>%
-        ## filter to truncate onsets to only occur between 10 and 42
-        filter(season_week <= 44 & season_week >= 12) %>% 
-        mutate(onset = ili_lag1 > baseline & ili_lag2 > baseline & ili_lag3 > baseline) 
+    observed_seasonal_quantities_by_season <- t(sapply(
+        paste0(1999:2010, "/", 2000:2011),
+        function(season) {
+            get_observed_seasonal_quantities(
+                data = data,
+                season = season,
+                first_CDC_season_week = 10,
+                last_CDC_season_week = 41,
+                onset_baseline = 
+                    get_onset_baseline(region = data$region[1], season = season),
+                incidence_var = "weighted_ili",
+                incidence_bins = data.frame(
+                    lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+                    upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+                incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+            )
+        }
+    ))
     
     ## vector of onset weeks
-    onset_week <- onsets %>%
-        filter(onset) %>% 
-        summarize(first_week = min(season_week)-2) %>% ## may not do the right thing if onset is in first 2 weeks
-        .$first_week
+    onset_week <- as.numeric(unlist(observed_seasonal_quantities_by_season[, 1]))
     
     ## also, calculate the probability of no onset
-    any_onset <- onsets %>% 
-        summarize(onset_occurred = any(onset)) %>%
-        ungroup() 
-    prob_no_onset <- 1-sum(any_onset$onset_occurred, na.rm=TRUE)/nrow(any_onset)
-
-    ### calculate density
+    prob_no_onset <- mean(is.na(onset_week))
+    
+    ### calculate density based on non-NA values
+    onset_week <- onset_week[!is.na(onset_week)]
     return(list(kde=density(onset_week, na.rm=TRUE), prob_no_onset=prob_no_onset, x=onset_week))
 }
 
@@ -534,10 +539,11 @@ get_log_scores_via_direct_simulation <- function(
         
         ## Get predictions and log scores for onset
         onset_week_bins <- c(as.character(10:42), "none")
-        onset_week_preds <- predict_kde_onset_week(kde_fit$onset_week, n_sims)
-        onset_bin_log_probs <- log(onset_week_preds[onset_week_bins])
+        onset_week_preds <- predict_kde_onset_week(kde_fit$onset_week, n_sims) # returns probs for weeks 1:52
+        onset_bin_log_probs <- log(onset_week_preds[onset_week_bins]) # subset to the weeks we care about (should maybe sum probs for weeks before 10?)
+        onset_bin_log_probs <- onset_bin_log_probs - logspace_sum(onset_bin_log_probs) # re-normalize after subsetting
         predictions_df[, paste0("onset_bin_", onset_week_bins, "_log_prob")] <-
-            onset_bin_log_probs
+            rep(onset_bin_log_probs, each = nrow(predictions_df))
         predictions_df[, "onset_log_score"] <-
             onset_bin_log_probs[ as.character(observed_seasonal_quantities$observed_onset_week) ]
         predictions_df[, "onset_competition_log_score"] <-
@@ -549,9 +555,10 @@ get_log_scores_via_direct_simulation <- function(
         peak_week_bins <- as.character(10:42)
         peak_week_preds <- predict_kde_peak_week(kde_fit$peak_week, n_sims) ## returns probs for all weeks
         peak_week_bin_log_probs <- log(peak_week_preds[peak_week_bins]) ## subset to only competition weeks
+        peak_week_bin_log_probs <- peak_week_bin_log_probs - logspace_sum(peak_week_bin_log_probs) # re-normalize after subsetting
         names(peak_week_bin_log_probs) <- as.character(peak_week_bins)
         predictions_df[, paste0("peak_week_bin_", peak_week_bins, "_log_prob")] <-
-            peak_week_bin_log_probs
+            rep(peak_week_bin_log_probs, each = nrow(predictions_df))
         predictions_df[, "peak_week_log_score"] <-
             logspace_sum(peak_week_bin_log_probs[ as.character(observed_seasonal_quantities$observed_peak_week)] )
         predictions_df[, "peak_week_competition_log_score"] <-
@@ -566,7 +573,7 @@ get_log_scores_via_direct_simulation <- function(
                                                              n_sims)
         peak_inc_bin_log_probs <- log(peak_week_inc_preds)
         predictions_df[, paste0("peak_inc_bin_", incidence_bin_names, "_log_prob")] <-
-            peak_inc_bin_log_probs
+            rep(peak_inc_bin_log_probs, each = nrow(predictions_df))
         predictions_df[, "peak_inc_log_score"] <-
             peak_inc_bin_log_probs[
                 as.character(observed_seasonal_quantities$observed_peak_inc_bin)]
