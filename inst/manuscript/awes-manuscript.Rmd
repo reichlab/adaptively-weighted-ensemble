@@ -2,7 +2,13 @@
 title: "Prediction of Infectious Disease Epidemics via Feature-Weighted Density Ensembles"
 author: "Evan L Ray, Krzysztof Sakrejda, Nicholas G Reich"
 date: "January 2017"
-output: pdf_document
+output: 
+    pdf_document:
+        keep_tex: false
+        citation_package: natbib
+header-includes:
+   - \input{GrandMacros.tex}
+bibliography: feature-weighted-ensembles.bib
 ---
 
 
@@ -15,7 +21,7 @@ The practice of combining predictions from different models has been used for de
 
 Ensembles are a natural choice for noisy and complex interdependent systems that evolve over time. In this setting, no one model is likely to be able to predict the full dynamics of a complex system. Instead "specialist" or "component" models could be relied on to capture distinct features or signals from a system which, when combined, represent a complete range of possible outcomes. 
 
-Using component methods that generate predictive densities for outcomes of interest, we have developed a feature-weighted density ensemble method that estimates model weights as functions of observed data. Our approach fuses aspects of different ensemble methods: it uses model "stacking" \cite{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \cite{Madigan1998}, and estimates model weights based on features of the system \cite{Sill2009} using gradient tree boosting [[need citation]]. 
+Using component methods that generate predictive densities for outcomes of interest, we have developed a feature-weighted density ensemble method that estimates model weights as functions of observed data. Our approach fuses aspects of different ensemble methods: it uses model "stacking" \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting [[need citation]]. 
 
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind. Even in today's modern and scientific world, the spectre of a global pandemic appears to be a real possibility. The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics. With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies." [ADD CITATION: http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm]
@@ -30,41 +36,71 @@ Using seasonal influenza outbreaks in the US health regions as a case-study, we 
 
 ### Data
 
-We obtained publicly available data on seasonal influenza activity in the United States from the U.S. Centers for Disease Control and Prevention (CDC). 
-For each of the 10 Health and Human Services regions in the country, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
-The wILI for a particular region is calculated by taking the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
+We obtained publicly available data on seasonal influenza activity in the United States from the U.S. Centers for Disease Control and Prevention (CDC) from 1997-2016. 
+For each of the 10 Health and Human Services regions in the country in addition to the nation as a whole, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
+The wILI for a particular region is calculated as the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
 During the CDC-defined influenza season (between MMWR week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
-This includes new wILI data from as recent as two weeks prior, as well as updates to previously reported numbers as new data becomes available. 
-For this analysis, we use only the final reported wILI
+This includes "current" wILI data from two weeks prior to the reporting date, as well as updates to previously reported numbers as new data becomes available. 
+For this analysis, we use only the final reported wILI measures to train and predict from our models.
 
+The CDC defines the influenza season onset as the first of three successive weeks of the season for which wILI is greater than or equal to a threshold that is specific to the region and season. 
+This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations (cite https://www.cdc.gov/flu/weekly/overview.htm).  
+The CDC provides historical threshold values for each region going back to the 2007/2008 season (cite https://github.com/cdcepi/FluSight-forecasts/blob/master/wILI_Baseline.csv).
 
-Specifically, we aimed to predict three values defined by the US Centers for Disease Control and Prevention (US CDC) that define important features of an epidemic season: 
-
- 1. onset week: the week at which the incidence first exceeds and remains above a region and season specific threshold,
- 2. peak week: the week at which the maximum incidence for the season is observed,
- 3. peak incidence: the maximum observed weighted influenza-like illness (wILI) measure in a season.
-
-The season onset is defined as the first week of the season for which incidence in the following three weeks is greater than or equal to a threshold that is specific to the region and season.  This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations (cite https://www.cdc.gov/flu/weekly/overview.htm).  The CDC provides historical threshold values for each region going back to the 2007/2008 season (cite https://github.com/cdcepi/FluSight-forecasts/blob/master/wILI_Baseline.csv); for the purposes of training our models, we have used region-specific average baseline values for the earlier seasons.
-
-Is current implementation holding CDC baseline constant across seasons? predict_region_kde makes me think so.
+Additionally, we define two other metrics specific to a region-season. The peak week is the week at which the maximum wILI for the season is observed. The peak incidence is the maximum observed wILI measured in a season.
 
 ### Component models
-We used three component models to generate predictions of these quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard SARIMA implementation and model selection approach to fit a seasonal auto-regressive model to the data.
+We used three component models to generate probabilistic predictions of these three quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation and model selection approach to fit a model to the data. All models were fit independently on data within a particular region.
 
- 1) A "fixed" model using either Kernel Density Estimation (for season onset week, season peak week, and season peak incidence), or a GAM (for predictions of incidence at horizons 1 to 4 weeks).  The predictions from this model do not change as new data are observed over the course of the season (though the predictions for incidence in individual weeks do depend on the week being predicted), and can be interpreted as a representation of "everything that we have seen in the past".  A separate model fit is obtained for each region. [[include trunc KDE?: Model number 1 in the original description (below) has been modified to truncate the predictive distributions for onset timing, peak timing, and peak incidence so that values that have been eliminated by previously observed incidence are assigned low probability.  This is done in a very ad hoc manner.  The predictive distribution for the remaining bins is scaled up so that the sum of the predictive probability assigned to all bins equals 1.]]
+#### Kernel Density Estimation (KDE)
+The simplest of the component models uses kernel density estimation (KDE) to estimate a predictive distribution of future values based on observed data from previous seasons within the region of interest. 
+The predictions from this model do not change as new data are observed over the course of the season. 
+Said another way, the predictive distribution for a particular metric within a region does not change over the course of a season - it always yields the same predictive distribution based on historical data.
 
- 2) A model combining Kernel Conditional Density Estimation (KCDE) and copulas.  KCDE is used to obtain separate predictive densities for each future week in the season.  In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities, thereby obtaining a joint predicitive density for incidence in all future weeks.  Predicitive densities for the seasonal quantities can be obtained as appropriate integrals of this joint density.  A separate model fit is obtained for each region.
+#### Kernel Conditional Density Estimation (KCDE)
+We use a method called kernel conditional density estimation (KCDE) to estimate predictive distributions for each target. 
+KCDE is used to obtain separate predictive densities for each future week in the season. 
+In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density for incidence in all future weeks.  
+Predicitive densities for the seasonal quantities can be obtained as appropriate integrals of this joint density (see [[CITE RAY]] for details)
 
- 3) A SARIMA model.  This model is fit to seasonally differenced log(weighted_ili) using a stepwise procedure to select the model specification.  A separate model fit is obtained for each region.
+#### Seasonal auto-regressive integrated moving average (SARIMA)
+This model is fit to seasonally differenced wILI on the natural log scale, using an established stepwise procedure to select the model specification. [[From auto.arima? Should be specific and cite relevant R package.]] 
+
+### Model training and cross-validation
+
+We used data from 14 seasons (1997/1998 through 2010/2011) to train the models. Data from five seasons (2011/2012 through 2015/2016) were held out when fitting the models and used exclusively in the testing phase. Care was taken to ensure that our test predictions were made only once, to avoid overfitting our models \citep{Hastie2011}.
+
+Describe what each model produces...
 
 ### Ensemble models 
 
-1. Equal weights
-2. Degenerate EM estimated weights (constant by X, estimated separately by metric and region)
-3. Feature-weighted (changing by X, estimated separately by metric and region)
-4. Feature-weighted with regularization parameters chosen via cross-validation
+Our ensemble framework can be described using the following notation.
+Let $f_m(y|\bX)$ denote the predictive density from model $m$ for the value of the scalar random variable $Y$ conditional on observed variables $\bX$.  
+For example, $Y$ could represent the peak incidence for a given season or the incidence in the season corresponding to a particular week, and $\bX$ may include features such as time of year at which the prediction is being made, or other such features of the observed data or the component models.
 
-X = (week of season, recent incidence)
+The combined predictive density for a particular target in a given region can be written as 
+\begin{align}
+f(y|\bX) &= \sum_{m = 1}^M \pi_m f_m(y|\bX) \text{, where} \label{eqn:EnsembleModel} \\
+\pi_{m}(\bX) &= \frac{\exp\{\rho_m(\bX)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bX)\}}  \label{eqn:PiMultilogitRho} 
+\end{align}
+where $\rho_m(\bX)$ is an estimated function that can depend on observed data. In this set-up, the weight for each model, $\pi_m$ is taken as the softmax of the vector of $\rho_m$ values. This implies that when the value of $\rho_m(\bX)$ is large relative to the other models, then model $m$ would have more weight than the other models. 
+
+Using component model predictions from the training phase, we used four distinct techniques to create "stacked" models, or a probabilistic ensemble prediction. Based on exploration of training phase data only and a priori knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: week of season, model confidence (defined as the minimum number of predictive distribution bins required to cover 90% probability), and wILI measurement at the time of prediction.
+
+1. Equal model weights, i.e. $\pi_m = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bX$.
+
+2. Constant model weights, i.e. $\pi_m(\bX) = c_m$, a constant, where $\sum c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization algorithm.\citep{Lin2004} 
+
+3. Feature-weighted, unregularized, i.e. $\rho_m(\bX)$ is estimated using gradient boossting with features including week of the season and 
+Two feature-weighted (changing by season_week only, estimated separately by metric and region)
+  3a. season_week
+  3b. season_week*model_confidence
+Three feature-weighted with regularization parameters chosen via cross-validation:
+  4a. season_week
+  4b. season_week*model_confidence
+  4c. season_week*model_confidence*lag1_ili
+  
+X = (week of season, model confidence, recent incidence)
 
 8 methods (1 equal-bin-weight + 3 component + 4 ensemble) / 3-7 metrics / 5 test seasons
 
@@ -72,12 +108,6 @@ FeWe works regardless of discrete/continuous covariate
 
 ### Adaptively Weighted Ensemble framework
 
-Let $f_m(y)$ denote the predictive density from model $m$ for the value of the scalar random variable $Y$.  For example, $Y$ could represent the peak incidence for a given season or the incidence in the season corresponding to a particular week.  The combined predictive density at time $t$ is
-\begin{align}
-f(y|x) &= \sum_{m = 1}^M \pi_m f_m(y|x) \text{, where} \label{eqn:EnsembleModel} \\
-\pi_{m} &= \frac{\exp\{\rho_m(x)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(x)\}}  \label{eqn:PiMultilogitRho} 
-\end{align}
-where $\rho_m(x)$ is XXX.
 
 In the context of repeated predictions from a time-series, the covariate vector $x$ may include time-dependent covariates, e.g. the week at which the prediction is made. However to introduce the method more generally, we can think of $x$ as being any set of covariates that may influence which model may be more tied to the true outcome.
     
@@ -89,8 +119,6 @@ To prevent the stacking model from overfitting the training data, we estimate th
 The final predictions are obtained as a linear combination of the predictions from these component models.  The model weights depend on the week of the season in which the predictions are made.  We represent these weights as the softmax transformation of latent functions rho_ilt(season week) where i = 1, ..., 3 indexes the component model, l = 1, ..., 11 indexes the location (national or region 1 through 10), and t = 1, ..., 7 indexes the prediction target.  We estimate those latent functions rho_ilt via gradient tree boosting, optimizing leave-one-season-out crossvalidated log scores (using the definition of log scores specified for this competition).
 
 We have introduced regularization into our model weighting scheme, which uses gradient tree boosting.  For now, weight regularization is done through three parameters; optimal values of those parameters are selected through cross-validation and a single best weighting scheme is selected.  The parameters are the depth of the regression trees used in the gradient tree boosting process, the number of boosting iterations, and the learning rate.
-
-### Model training and cross-validation
 
 ### Model testing
 
@@ -109,6 +137,7 @@ Future Directions
  - more complex models
  - use model weights to infer predictive value of different data sources (climate, strain-specific info)
  
- 
+
+# References
  
  
