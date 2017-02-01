@@ -86,6 +86,9 @@ for(prediction_target in c("onset", "peak_week", "peak_inc")) {
       gather_("bin", "log_prob", cols_to_examine) %>%
       mutate(bin = as.numeric(substr(bin, nchar(prediction_target) + 6, nchar(bin) - 9)),
         prob = exp(log_prob))
+    if(identical(prediction_target, "onset")) {
+      temp$bin[is.na(temp$bin)] <- 0
+    }
     
     ## Load and clean up data set
     data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
@@ -101,7 +104,7 @@ for(prediction_target in c("onset", "peak_week", "peak_inc")) {
     
     ## get seasonal quantities
     observed_seasonal_quantities_by_season <- t(sapply(
-      paste0(1999:2010, "/", 2000:2011),
+      paste0(1997:2010, "/", 1998:2011),
       function(season) {
         get_observed_seasonal_quantities(
           data = data,
@@ -125,6 +128,7 @@ for(prediction_target in c("onset", "peak_week", "peak_inc")) {
           times = sapply(observed_seasonal_quantities_by_season[, which(colnames(observed_seasonal_quantities_by_season) == "observed_onset_week")], length)),
         bin = as.numeric(unlist(observed_seasonal_quantities_by_season[, which(colnames(observed_seasonal_quantities_by_season) == "observed_onset_week")]))
       )
+      obs_target_by_season$bin[is.na(obs_target_by_season$bin)] <- 0
     } else if(identical(prediction_target, "peak_week")) {
       obs_target_by_season <- data.frame(
         analysis_time_season = rep(rownames(observed_seasonal_quantities_by_season),
@@ -150,7 +154,7 @@ for(prediction_target in c("onset", "peak_week", "peak_inc")) {
       facet_wrap( ~ analysis_time_season) +
 #      geom_smooth(se = FALSE, color = "black") +
 #      ylim(-10, 0) +
-      ggtitle(paste0(reg, " - ", prediction_target)) +
+      ggtitle(paste0(reg, " - ", prediction_target, ifelse(identical(prediction_target, "onset"), " - bin 0 represents 'no onset'", ""))) +
       theme_bw()
     print(p)
   }
@@ -202,7 +206,7 @@ for(prediction_target in c("ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc")) {
         facet_wrap( ~ analysis_time_season_week) +
         #      geom_smooth(se = FALSE, color = "black") +
         #      ylim(-10, 0) +
-        ggtitle(paste0(reg, " - ", prediction_target, "; faceted by analysis time season week")) +
+        ggtitle(paste0(reg, " - ", prediction_target, "season = ", analysis_time_season_to_plot, "; faceted by analysis time season week")) +
         theme_bw()
       print(p)
     }
