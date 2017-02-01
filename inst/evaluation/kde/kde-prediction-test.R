@@ -16,7 +16,7 @@ analysis_time_season <- "2011/2012"
 seasons_to_copy <- paste0(2012:2015, "-", 2013:2016)
 
 ## setup for random seeds
-rngstream <- get_initial_rng_substream(seed=95381) ## seed generated on random.org
+rngstream <- get_initial_rng_substream()
 
 library(doMC)
 registerDoMC(11)

@@ -46,14 +46,17 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
     ## subset to region of interest
     dat <- data[which(data$region == region),]
     ## subset to include only times before first test season and week
-    idx <- which(as.Date(as.character(dat$time)) < MMWRweek2Date(first_test_year, first_test_week))
-    dat <- dat[idx,]
+    idx <- which(dat$year == first_test_year & dat$week == first_test_week)
+    dat <- dat[seq_len(idx - 1), , drop = FALSE]
+#    idx <- which(as.Date(as.character(dat$time)) < MMWRweek2Date(first_test_year, first_test_week))
+#    dat <- dat[idx,]
     
     ## assumes region is either "X" or "Region k" format
     reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
     
-    ### loop over all seasons
-    for(season_left_out in unique(dat$season)) {
+    ### loop over all seasons, including first season of test phase
+    ### (i.e., create a fit that doesn't leave any training data out)
+    for(season_left_out in c(unique(as.character(dat$season)), paste0(first_test_year, "/", first_test_year + 1))) {
         tmpdat <- dat
         
         ### create filename for saving and check to see if fit exists already
@@ -71,7 +74,9 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
         
         ### drop left-out season
         idx_to_drop <- tmpdat$season == season_left_out
-        tmpdat <- tmpdat[-idx_to_drop,]
+        if(sum(idx_to_drop) > 0) {
+          tmpdat <- tmpdat[-idx_to_drop,]
+        }
         
         ### create fits
         kde_onset_week <- fit_kde_onset_week(tmpdat)
