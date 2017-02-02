@@ -8,7 +8,7 @@ output:
 date: "`r format(Sys.time(), '%B %Y')`"
 header-includes:
    - \input{GrandMacros.tex}
-   - \usepackage{setspace}\doublespacing
+   - \usepackage{setspace}\onehalfspacing
    - \usepackage{lineno}\linenumbers
    - \renewcommand{\familydefault}{cmss}
 bibliography: feature-weighted-ensembles.bib
@@ -58,26 +58,27 @@ We used three component models to generate probabilistic predictions of these th
 ### Kernel Density Estimation (KDE)
 The simplest of the component models uses kernel density estimation (KDE) to estimate a predictive distribution of future values based on observed data from previous seasons within the region of interest. 
 We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016}. 
-To create an empirical predictive distribution of size $N$ from a KDE fit based on a data vector of length $K$ $\hat \by_{1:K}$, we first drew $N$ samples (with replacement) from $\hat \by_{1:K}$, yielding a new vector $\tilda \by_{1:N}$. 
-We then drew $N$ psuedo-random deviates from Gaussian distributions centered at $\tilda \by_{1:N}$ with the bandwidth estimated by the KDE algorithm. 
+To create an empirical predictive distribution of size $N$ from a KDE fit based on a data vector of length $K$ ($\hat \by_{1:K}$), we first drew $N$ samples (with replacement) from $\hat \by_{1:K}$, yielding a new vector $\tilde \by_{1:N}$. 
+We then drew a single psuedo-random deviates from each of $N$ Gaussian distributions centered at $\tilde \by_{1:N}$ with the bandwidth estimated by the KDE algorithm. 
 These sampled points then make up the empirical predictive distribution from a KDE model.
-The predictions from this model do not change as new data are observed over the course of the season. 
-Said another way, the predictive distribution for a particular metric within a region does not change over the course of a season - it always yields the same predictive distribution based on historical data.
-
 For the onset week outcome, we added the probability of no onset occuring within a season as [[XXXX]] and then standardized this along with the sampled probabilities so they summed to 1.
 <!--for week-based outcomes: we just removed samples that were <=0 and >52. Arbitrary but likely not a big deal. -->
+
+It is important to note that the predictions from this model do not change as new data are observed over the course of the season.
+This is a strictly seasonal model, only ever predicting a distribution that relates to the average observations in past seasons.
+
 
 ### Kernel Conditional Density Estimation (KCDE)
 We use a method called kernel conditional density estimation (KCDE) to estimate predictive distributions for each target. 
 Using a kernel-based approach to nearest-neighbors regression, KCDE fits separate predictive densities for each future week in the season. 
-Our implementation for this paper conditioned on recent past incidence and week of season, so only information from the simple time series, although the method would allow for additional covariates to be included.
-In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.  
+Our implementation for this paper conditioned on recent past incidence and week of season, only using information from the time series itself, although the method would allow for additional covariates to be included.
+In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks. 
 Predicitive densities for the seasonal quantities can be obtained as appropriate integrals of this joint density (see \citep{Ray2016} for details).
 
 [[Optional: add 2-3 sentences with a few more details on methodology, etc... cross-validation, bandwidth selection, periodic kernel, data on log-scale?, etc...]]
 
 ### Seasonal auto-regressive integrated moving average (SARIMA)
-We fit seasonal ARIMA models \citep{Box2015} to wILI transformed to be on the natural log scale. We used the stepwise procedure from the `auto.arima` function in the `forecast` package to select the order of first- and seasonal-differencing as well as the specification of the order of auto-regressive and moving average terms for the SARIMA model.\citep{Hyndman2008} Additionally, data were Box-Cox transformed prior to modeling.
+We fit seasonal ARIMA models \citep{Box2015} to wILI observations transformed to be on the natural log scale. We used the stepwise procedure from the `auto.arima` function in the `forecast` package for R to select the order of first- and seasonal-differencing as well as the specification of the order of auto-regressive and moving average terms for the SARIMA model.\citep{Hyndman2008} Additionally, data were Box-Cox transformed prior to modeling.
 
 ## Model training and cross-validation
 
@@ -100,7 +101,14 @@ The log score is a proper scoring rule\citep{Gneiting2007}, calculated in our se
 
 ## Ensemble models 
 
-Our ensemble framework can be described using the following notation.
+This paper proposes a novel framework for estimating feature-dependent weights for a "stacked" ensemble model, i.e. an average of models. 
+In a general context, by "feature-dependent" we mean that the weights assigned to different component models are assumed to have an relationship to observed features or covariates that can be estimated.
+(Although we illustrate the method in a the context of time-series predictions, it could also be used in any context where predictive distributions are being combined.)
+Features can be observed data from the time-series being predicted (such as recent wILI measurements or the time of year at which predictions are being made), observed data from outside the focal time-series (such as, for example, recent weather observations), or features of the predictions themselves (e.g. summaries of the predictive distribution itself, such as a measure of spread in the distribution, or the time since a predicted peak).
+Based on exploration of training phase data only and a priori knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: week of season, model confidence (defined as the minimum number of predictive distribution bins required to cover 90% probability), and wILI measurement at the time of prediction.
+
+To ensure that we could evaluate variations of the feature-weighted ensemble fairly, we also developed several simple alternatives for model averaging so that the proposed methods could be compared with easier-to-implement options. 
+All of the ensemble frameworks used can be described using the a single set of notation.
 Let $f_m(y|\bX)$ denote the predictive density from model $m$ for the value of the scalar random variable $Y$ conditional on observed variables $\bX$.  
 For example, $Y$ could represent the peak incidence for a given season or the incidence in the season corresponding to a particular week.
 In the context of repeated predictions from a time-series, the covariate vector $\bX$ may include time-dependent covariates, e.g. the week at which the prediction is made. 
@@ -119,7 +127,7 @@ We ensure that these constraints are met by parameterizing the $\pi_m$ in terms 
 We avoid identifiability problems by fixing $\rho_M(\bX) = 0$ for all $\bX$.  
 For other models $m$, $\rho_m(\bX) > 0$ indicates that model $m$ has more weight than the baseline model for predictions at the given value of $\bX$. 
 
-Using component model predictions from the training phase, we used four distinct techniques to create "stacked" models, or a probabilistic ensemble prediction. Based on exploration of training phase data only and a priori knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: week of season, model confidence (defined as the minimum number of predictive distribution bins required to cover 90% probability), and wILI measurement at the time of prediction.
+Using component model predictions from the training phase, we used four distinct techniques to create "stacked" models, or a probabilistic ensemble prediction. 
 
 1. Equal model weights, i.e. $\pi_m = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bX$.
 
@@ -157,6 +165,12 @@ We have introduced regularization into our model weighting scheme, which uses gr
 
 ## Model testing
 
+## Software and code
+
+We used `r R.version.string` for all analyses.\citep{Rcore2016}
+All data and code used for this analysis is freely available in an R package online at https://github.com/reichlab/adaptively-weighted-ensemble and may be installed in R directly.
+To maximize reproducibility of our work, we have set seeds prior to running code that relies on stochastic simulations using the `rstream` package.\citep{Leydold2015}  
+Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
 
