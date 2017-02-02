@@ -4,10 +4,12 @@
 \alias{fit_kde_onset_week}
 \title{Estimate KDE for onset week}
 \usage{
-fit_kde_onset_week(data)
+fit_kde_onset_week(data, prob_no_onset)
 }
 \arguments{
 \item{data}{data with one season left out}
+
+\item{prob_no_onset}{probability to assign to "no onset" bin}
 }
 \value{
 a fit from density(), along with points to evaluate at
