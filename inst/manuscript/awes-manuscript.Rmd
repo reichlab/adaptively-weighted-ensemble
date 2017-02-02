@@ -57,27 +57,45 @@ We used three component models to generate probabilistic predictions of these th
 
 ### Kernel Density Estimation (KDE)
 The simplest of the component models uses kernel density estimation (KDE) to estimate a predictive distribution of future values based on observed data from previous seasons within the region of interest. 
+We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016}. 
+To create an empirical predictive distribution of size $N$ from a KDE fit based on a data vector of length $K$ $\hat \by_{1:K}$, we first drew $N$ samples (with replacement) from $\hat \by_{1:K}$, yielding a new vector $\tilda \by_{1:N}$. 
+We then drew $N$ psuedo-random deviates from Gaussian distributions centered at $\tilda \by_{1:N}$ with the bandwidth estimated by the KDE algorithm. 
+These sampled points then make up the empirical predictive distribution from a KDE model.
 The predictions from this model do not change as new data are observed over the course of the season. 
 Said another way, the predictive distribution for a particular metric within a region does not change over the course of a season - it always yields the same predictive distribution based on historical data.
 
+For the onset week outcome, we added the probability of no onset occuring within a season as [[XXXX]] and then standardized this along with the sampled probabilities so they summed to 1.
+<!--for week-based outcomes: we just removed samples that were <=0 and >52. Arbitrary but likely not a big deal. -->
+
 ### Kernel Conditional Density Estimation (KCDE)
 We use a method called kernel conditional density estimation (KCDE) to estimate predictive distributions for each target. 
-KCDE is used to obtain separate predictive densities for each future week in the season. 
-In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density for incidence in all future weeks.  
-Predicitive densities for the seasonal quantities can be obtained as appropriate integrals of this joint density (see [[CITE RAY]] for details)
+Using a kernel-based approach to nearest-neighbors regression, KCDE fits separate predictive densities for each future week in the season. 
+Our implementation for this paper conditioned on recent past incidence and week of season, so only information from the simple time series, although the method would allow for additional covariates to be included.
+In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.  
+Predicitive densities for the seasonal quantities can be obtained as appropriate integrals of this joint density (see \citep{Ray2016} for details).
+
+[[Optional: add 2-3 sentences with a few more details on methodology, etc... cross-validation, bandwidth selection, periodic kernel, data on log-scale?, etc...]]
 
 ### Seasonal auto-regressive integrated moving average (SARIMA)
-This model is fit to seasonally differenced wILI on the natural log scale, using an established stepwise procedure to select the model specification. [[From auto.arima? Should be specific and cite relevant R package.]] 
+We fit seasonal ARIMA models \citep{Box2015} to wILI transformed to be on the natural log scale. We used the stepwise procedure from the `auto.arima` function in the `forecast` package to select the order of first- and seasonal-differencing as well as the specification of the order of auto-regressive and moving average terms for the SARIMA model.\citep{Hyndman2008} Additionally, data were Box-Cox transformed prior to modeling.
 
 ## Model training and cross-validation
 
-We used data from 14 seasons (1997/1998 through 2010/2011) to train the models. Data from five seasons (2011/2012 through 2015/2016) were held out when fitting the models and used exclusively in the testing phase. Care was taken to ensure that our test predictions were made only once, to avoid overfitting our models \citep{Hastie2011}.
+We used data from 14 seasons (1997/1998 through 2010/2011) to train the models. 
+Data from five seasons (2011/2012 through 2015/2016) were held out when fitting the models and used exclusively in the testing phase. 
+Care was taken to ensure that our test predictions were made only once, to avoid overfitting our models \citep{Hastie2011}.
 
-For each model-region pair, we fitted the model 14 times, each time excluding one season during the fitting.
+For each model-region pair, we fitted the model 14 times, each time excluding one training season during the fitting.
 Then for each season-week with the left-out season, we generated a set of three predictive distributions, one for each of the prediction targets. 
-The predictive distributions were represented by probabilities assigned to bins associated with different possible outcomes.
-For example, for onset week, the bins are each possible season week plus a bin for "no onset". 
-Using the eventually observed value for each of the three outcomes, we then calculated the log-score achieved by each of the models at each season-week.
+In total, this generated nearly 45,000 predictive distributions across the entire training phase:3 targets x 3 models x 11 regions x 14 training seasons x 32 weeks per season.
+(Several of the training seasons had 33 weeks per season because they had a MMWR week 53.)
+
+Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
+For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
+For peak week, the bins are represented by integer values for each possible season week.
+For peak incidence, the bins are intervals of length 0.1 from [0, 0.1), [0.1, 0.2), ..., [12.9, 13.0), with a final bin that captures all high incidence values, [13.0, $\infty$].
+<!-- Is this capturing all of the subtlety of rounding in bins? -->
+Using the eventually observed value for each of the three outcomes, we then calculated the log-score achieved by each of predictive distributions across the entire training period.
 The log score is a proper scoring rule\citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
 
 ## Ensemble models 
