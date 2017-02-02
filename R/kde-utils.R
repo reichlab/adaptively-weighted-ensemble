@@ -41,6 +41,45 @@
 ##' 
 fit_region_kdes <- function(data, region, first_test_year, first_test_week, path) {
     require(MMWRweek)
+    require(dplyr)
+    
+    ### get proportion of region-seasons (across all regions and all seasons
+    ### before first test year/week) with no onset
+    onsets_by_region_season <- NULL
+    for(region_val in unique(data$region)) {
+        data_subset <- data[which(data$region == region_val),]
+        ## subset to include only times before first test season and week
+        idx <- which(data_subset$year == first_test_year & data_subset$week == first_test_week)
+        data_subset <- data_subset[seq_len(idx - 1), , drop = FALSE]
+        
+        observed_seasonal_quantities_by_season <- t(sapply(
+            as.character(unique(data_subset$season)),
+            function(season) {
+                get_observed_seasonal_quantities(
+                    data = data_subset,
+                    season = season,
+                    first_CDC_season_week = 10,
+                    last_CDC_season_week = 41,
+                    onset_baseline = 
+                        get_onset_baseline(region = region_val, season = season),
+                    incidence_var = "weighted_ili",
+                    incidence_bins = data.frame(
+                        lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+                        upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+                    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+                )
+            }
+        ))
+        
+        onsets_by_region_season <- bind_rows(onsets_by_region_season,
+            data.frame(
+                region = region_val,
+                season = rownames(observed_seasonal_quantities_by_season),
+                onset = as.character(unname(unlist(observed_seasonal_quantities_by_season[, 1]))),
+                stringsAsFactors = FALSE
+            )
+        )
+    }
     
     ### subsetting data
     ## subset to region of interest
@@ -48,9 +87,7 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
     ## subset to include only times before first test season and week
     idx <- which(dat$year == first_test_year & dat$week == first_test_week)
     dat <- dat[seq_len(idx - 1), , drop = FALSE]
-#    idx <- which(as.Date(as.character(dat$time)) < MMWRweek2Date(first_test_year, first_test_week))
-#    dat <- dat[idx,]
-    
+
     ## assumes region is either "X" or "Region k" format
     reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
     
@@ -79,7 +116,8 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
         }
         
         ### create fits
-        kde_onset_week <- fit_kde_onset_week(tmpdat)
+        kde_onset_week <- fit_kde_onset_week(tmpdat,
+          prob_no_onset = mean(onsets_by_region_season$onset[onsets_by_region_season$season != season_left_out] == "none"))
         kde_peak_week <- fit_kde_peak_week(tmpdat)
         kde_log_peak_week_inc <- fit_kde_log_peak_week_inc(tmpdat)
         kde_log_weekly_inc <- fit_kde_weekly_inc(tmpdat)
@@ -98,13 +136,14 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
 #' Estimate KDE for onset week
 #'
 #' @param data data with one season left out
+#' @param prob_no_onset probability to assign to "no onset" bin
 #'
 #' @return a fit from density(), along with points to evaluate at
-fit_kde_onset_week <- function(data) {
+fit_kde_onset_week <- function(data, prob_no_onset) {
     require(dplyr)
     ### get onset
     observed_seasonal_quantities_by_season <- t(sapply(
-        paste0(1999:2010, "/", 2000:2011),
+        unique(data$season),
         function(season) {
             get_observed_seasonal_quantities(
                 data = data,
@@ -124,9 +163,6 @@ fit_kde_onset_week <- function(data) {
     
     ## vector of onset weeks
     onset_week <- as.numeric(unlist(observed_seasonal_quantities_by_season[, 1]))
-    
-    ## also, calculate the probability of no onset
-    prob_no_onset <- mean(is.na(onset_week))
     
     ### calculate density based on non-NA values
     onset_week <- onset_week[!is.na(onset_week)]
@@ -537,7 +573,8 @@ get_log_scores_via_direct_simulation <- function(
             "kde-",
             reg_string,
             "-fit-leave-out-",
-            gsub("/", "-", analysis_time_season),
+            "2011-2012", # always use 2011/2012 season fit -- based on all training data
+#            gsub("/", "-", analysis_time_season),
             ".rds"))
 
         ### calculate log score for predictions that don't change depending on time of year

@@ -4,7 +4,7 @@ library(tidyr)
 library(ggplot2)
 library(awes)
 
-loso_preds <- assemble_loso_predictions()
+loso_preds <- assemble_predictions()
 
 for(prediction_target in c("onset", "peak_week", "peak_inc")) {
   cols_to_examine <- grep(paste0(prediction_target, ".*_log_prob"), colnames(loso_preds), value = TRUE)

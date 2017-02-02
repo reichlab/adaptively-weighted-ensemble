@@ -10,6 +10,8 @@ setwd("~/Documents/code_versioned/adaptively-weighted-ensemble/")
 
 library(awes)
 library(rstream)
+library(MMWRweek)
+library(dplyr)
 
 ## setup
 fludat <- read.csv('data-raw/allflu-cleaned.csv')
@@ -63,5 +65,5 @@ foreach(reg=region_strings) %dopar% {
         )
     }
 }
-    
+
 source("inst/estimation/kde/check-kde-predictions.R")

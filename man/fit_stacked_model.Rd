@@ -7,6 +7,8 @@ The weights are a function of observed covariates (which?),
 and are obtained via gradient tree boosting}
 \usage{
 fit_stacked_model(regions, prediction_target, component_model_names,
+  explanatory_variables = c("analysis_time_season_week",
+  "kcde_model_confidence", "sarima_model_confidence", "lag_1_weighted_ili"),
   loso_preds_path, booster = "gbtree", subsample = 1,
   colsample_bytree = 1, colsample_bylevel = 1, max_depth = 10,
   min_child_weight = -10^10, eta = 0.3, gamma = 0, lambda = 0,
@@ -15,10 +17,14 @@ fit_stacked_model(regions, prediction_target, component_model_names,
   verbose = 0)
 }
 \arguments{
-\item{prediction_target}{string with either "onset_week", "peak_week",
+\item{prediction_target}{string with either "onset", "peak_week",
 "peak_inc", "ph1_inc", ..., "ph4_inc"}
 
 \item{component_model_names}{character vector with names of component models}
+
+\item{explanatory_variables}{character vector with names of explanatory variables
+to include for weights; a non-empty subset of "analysis_time_season_week",
+"kcde_model_confidence", "sarima_model_confidence", "lag_1_weighted_ili"}
 
 \item{loso_preds_path}{path to directory with leave-one-season-out
 predictions from each component model.  Predictions should be saved in

@@ -8,7 +8,7 @@ region_strings <- c("National", paste0("Region", 1:10))
 
 pdf("inst/estimation/kde/check-kde-predictions.pdf", width=10)
 for(reg in region_strings) {
-  loso_preds <- assemble_loso_predictions(
+  loso_preds <- assemble_predictions(
     regions = reg,
     models = "kde")
   
@@ -70,7 +70,7 @@ dev.off()
 for(prediction_target in c("onset", "peak_week", "peak_inc")) {
   pdf(paste0("inst/estimation/kde/check-kde-predictions-", prediction_target, ".pdf"), width=10)
   for(reg in region_strings) {
-    loso_preds <- assemble_loso_predictions(
+    loso_preds <- assemble_predictions(
       regions = reg,
       prediction_target = prediction_target,
       models = "kde")
@@ -165,7 +165,7 @@ for(prediction_target in c("ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc")) {
   ph <- as.numeric(substr(prediction_target, 4, 4))
   pdf(paste0("inst/estimation/kde/check-kde-predictions-", prediction_target, ".pdf"), width=10)
   for(reg in region_strings) {
-    loso_preds <- assemble_loso_predictions(
+    loso_preds <- assemble_predictions(
       regions = reg,
       prediction_target = prediction_target,
       models = "kde")
