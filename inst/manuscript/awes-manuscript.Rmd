@@ -169,10 +169,21 @@ We have introduced regularization into our model weighting scheme, which uses gr
 
 We used `r R.version.string` for all analyses.\citep{Rcore2016}
 All data and code used for this analysis is freely available in an R package online at https://github.com/reichlab/adaptively-weighted-ensemble and may be installed in R directly.
+Predictions generated in real-time with early development versions of this model during the 2016/2017 influenza season may be viewed at https://reichlab.github.io/flusight/.
 To maximize reproducibility of our work, we have set seeds prior to running code that relies on stochastic simulations using the `rstream` package.\citep{Leydold2015}  
 Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
+
+#### Figure: show the flu data \label{fig:raw-data}
+
+#### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
+
+#### Figure: Example of log-scores and estimated weights from one region by season-week (x) for each model (color). Panel 1 has log-scores (y); Panel 2 has estimated weights (y) using degenerate EM, feature-weighted, and feature-weighted + smoothed \label{fig:example-weights}
+
+#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with log-score (y) \label{fig:test-phase-log-score}
+
+#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with MAE (y) \label{fig:test-phase-MAE}
 
 
 # Conclusion
