@@ -156,7 +156,13 @@ In total, we evaluate [[TODO: total_ensemble_models + total_component_models]] m
 ### Detailed methodology
 
 This method was motivated by our observation in earlier work that there are nonlinearities in the relative performance of different models as a function of the time of year at which predictions are made. 
-The framework described above in Equation \eqref{eqn:rhoSplineExpansion} captures these nonlinearities by estimating the functions $\rho_m(\bX)$ using a gradient tree boosting algorithm.
+The framework described above in Equation \eqref{eqn:rhoSplineExpansion} captures these nonlinearities by estimating the functions $\rho_m(\bX)$ using gradient tree boosting.
+
+Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees, that, when added together, create a function designed to minimize a given loss function. 
+In our application, we ask the algorithm to estimate the $\rho_m(\bX)$ that minimizes the negative log-score of the stacked prediction $f(y|\bX)$. 
+
+Parameters of the algorithm: depth of trees (number of splits within each tree?), number of boosting iterations (is this $N$, below? like a total number of trees), "learning rate".
+
 Specifically, we define a single tree as
 \begin{equation}
 T(\bX; \Theta) = \sum_{j=1}^J \gamma_j I(\bX \in R_j)
