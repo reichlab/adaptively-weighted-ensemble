@@ -17,6 +17,7 @@ bibliography: feature-weighted-ensembles.bib
 
 ```{r init, include = FALSE}
 library(plyr)
+library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(awes)
@@ -262,6 +263,59 @@ ggplot() +
 ```
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
+
+```{r log_scores_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="version 1 of log scores plot: vertical axis is mean log score across all seasons from 1999/2000 - 2015/2016 (both train and test, drop first two train seasons for all models since sarima made no predictions then and they were weird), faceted by prediction target and component model.  separate line for each region"}
+log_scores <- bind_rows(
+    assemble_predictions(
+      preds_path = "../../inst/estimation/loso-predictions",
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    ),
+    assemble_predictions(
+      preds_path = "../../inst/evaluation/test-predictions",
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    )
+  ) %>%
+  gather_("prediction_target", "log_score",
+    paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
+  mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
+
+mean_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
+  group_by(model, region, prediction_target, analysis_time_season_week) %>%
+  summarize(mean_log_score = mean(log_score))
+
+ggplot(mean_log_scores) +
+  geom_line(aes(x = analysis_time_season_week, y = mean_log_score, group = region)) +
+  facet_grid(model ~ prediction_target) +
+  theme_bw()
+```
+
+```{r log_scores_v2, echo=FALSE, fig.height=8, fig.cap="version 2 of log scores plot: data subset to national only, just training seasons (except for first two as above), facetted by season and prediction target"}
+ggplot(log_scores[log_scores$region == "National" & log_scores$analysis_time_season %in% paste0(1999:2010, "/", 2000:2011), ]) +
+  geom_line(aes(x = analysis_time_season_week, y = log_score, colour = model, linetype = model)) +
+  facet_grid(analysis_time_season ~ prediction_target) +
+  theme_bw()
+```
+
+```{r log_scores_v3, echo=FALSE, fig.height=8, fig.cap="version 3 of log scores plot: data subset to the same 3 regions used in the first plot above, all seasons (both test and tarining, except for first two as above), facetted by region and prediction target, mean log scores across all seasons"}
+mean_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
+  group_by(model, region, prediction_target, analysis_time_season_week) %>%
+  summarize(mean_log_score = mean(log_score))
+
+regions_to_plot <- c("National", "Region1", "Region7")
+
+ggplot(mean_log_scores[mean_log_scores$region %in% regions_to_plot, ]) +
+  geom_line(aes(x = analysis_time_season_week, y = mean_log_score, colour = model, linetype = model)) +
+  facet_grid(region ~ prediction_target) +
+  theme_bw()
+```
 
 #### Figure: Example of log-scores and estimated weights from one region by season-week (x) for each model (color). Panel 1 has log-scores (y); Panel 2 has estimated weights (y) using degenerate EM, feature-weighted, and feature-weighted + smoothed \label{fig:example-weights}
 
