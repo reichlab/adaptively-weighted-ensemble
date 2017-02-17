@@ -1,5 +1,3 @@
-## utility functions that might be useful for multiple prediction methods
-
 #' Utility function to compute onset week based on a trajectory of incidence values
 #' 
 #' @param incidence_trajectory a numeric vector with incidence for each time

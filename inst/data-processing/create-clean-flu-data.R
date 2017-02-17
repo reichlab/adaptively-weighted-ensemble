@@ -58,3 +58,10 @@ data$season_week <- ifelse(
 )
 
 write.csv(data, file = "data-raw/allflu-cleaned.csv")
+
+## code below here was added and run on 2/17/2017:
+flu_data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
+
+flu_data$time <- as.POSIXct(flu_data$time)
+
+save(flu_data, file = "data/flu_data.rdata")

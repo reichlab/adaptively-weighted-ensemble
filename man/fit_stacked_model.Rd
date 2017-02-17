@@ -8,8 +8,8 @@ and are obtained via gradient tree boosting}
 \usage{
 fit_stacked_model(regions, prediction_target, component_model_names,
   explanatory_variables = c("analysis_time_season_week",
-  "kcde_model_confidence", "sarima_model_confidence", "lag_1_weighted_ili"),
-  loso_preds_path, booster = "gbtree", subsample = 1,
+  "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"),
+  loso_preds_path, seasons_to_leave_out, booster = "gbtree", subsample = 1,
   colsample_bytree = 1, colsample_bylevel = 1, max_depth = 10,
   min_child_weight = -10^10, eta = 0.3, gamma = 0, lambda = 0,
   alpha = 0, nrounds = 10, cv_params = NULL, cv_folds = NULL,
@@ -17,6 +17,9 @@ fit_stacked_model(regions, prediction_target, component_model_names,
   verbose = 0)
 }
 \arguments{
+\item{regions}{string with region: either "National" or in the format
+"Regionk" for k in {1, ..., 10}}
+
 \item{prediction_target}{string with either "onset", "peak_week",
 "peak_inc", "ph1_inc", ..., "ph4_inc"}
 
@@ -24,11 +27,14 @@ fit_stacked_model(regions, prediction_target, component_model_names,
 
 \item{explanatory_variables}{character vector with names of explanatory variables
 to include for weights; a non-empty subset of "analysis_time_season_week",
-"kcde_model_confidence", "sarima_model_confidence", "lag_1_weighted_ili"}
+"kcde_model_confidence", "sarima_model_confidence", "weighted_ili"}
 
 \item{loso_preds_path}{path to directory with leave-one-season-out
 predictions from each component model.  Predictions should be saved in
 files named like "kde-National-loso-predictions.rds"}
+
+\item{seasons_to_leave_out}{optional character vector of seasons to leave out
+of stacking estimation}
 
 \item{booster}{what form of boosting to use? see xgboost documentation}
 
@@ -79,9 +85,6 @@ values in cv_params to refit using the full data set. Either "best",
 
 \item{verbose}{how much output to generate along the way. 0 for no logging,
 1 for some logging}
-
-\item{region}{string with region: either "National" or in the format
-"Regionk" for k in {1, ..., 10}}
 }
 \value{
 a model stacking fit

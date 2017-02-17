@@ -1,7 +1,46 @@
-#' Assemble leave-one-season-out predictions made by kde, kcde, and sarima
+## utility functions that might be useful for multiple prediction methods
+
+#' Compute and save a weighted combination of prediction results for the test
+#' phase.
+#' 
+#' @param preds_path path to test phase prediction results
+#' @param region character specifying a single region in the form of "National"
+#'   or "Regionk" for k in 1, ..., 10
+#' @param models character vector specifying component models whose predictions
+#'   should be combined
+#' @param matrix of model weights.  one column for each entry in "models", in
+#'   the same order.  one row for each row in 
+#' @param weighting_method character string specifying method name for
+#'   weighting; used as part of save file name
+#' 
+#' @return weighted combination of predictions
+#' 
+#' @export
+weighted_combine_predictions <- function(
+  component_preds,
+  region,
+  models = c("kde", "kcde", "sarima"),
+  prediction_target,
+  weights,
+  weighting_method = "") {
+  if(length(region) != 1L) {
+    stop("region must be length 1")
+  }
+  component_preds <- assemble_predictions(
+    preds_path = preds_path,
+    regions = region,
+    models = models,
+    prediction_targets = prediction_target
+  )
+  
+  
+}
+
+
+#' Assemble leave-one-season-out or test phase predictions made by kde, kcde, and sarima
 #' models on training data.
 #' 
-#' @param loso_preds_path path to leave-one-season-out predictions.
+#' @param preds_path path to leave-one-season-out or test phase predictions.
 #' @param regions character vector specifying regions for which to get predictions,
 #'   "National" or "Regionk" for k in 1, ..., 10.
 #' @param models character vector specifying models for which to get predictions,
@@ -14,20 +53,20 @@
 #' @return a data frame with predictions.
 #' 
 #' @export
-assemble_loso_predictions <- function(
-  loso_preds_path = "inst/estimation/loso-predictions",
+assemble_predictions <- function(
+  preds_path = "inst/estimation/loso-predictions",
   regions = c("National", paste0("Region", 1:10)),
   models = c("kde", "kcde", "sarima"),
   prediction_targets = c("onset", "peak_week", "peak_inc", "ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc"),
   prediction_types = c("log_score", "competition_log_score", "bin_log_probs")
   ) {
   
-  loso_pred_res <- rbind.fill(lapply(
+  pred_res <- rbind.fill(lapply(
     Sys.glob(outer(
       models,
       regions,
       function(model, region) {
-        paste0(loso_preds_path, "/", model, "-", region, "-*")
+        paste0(preds_path, "/", model, "-", region, "-*")
       }
     )),
     function(file_path) {
@@ -44,17 +83,145 @@ assemble_loso_predictions <- function(
     as.vector()
   prediction_cols_to_keep <- lapply(
     prediction_cols_to_keep_templates,
-    function(pattern) grep(pattern, names(loso_pred_res))) %>%
+    function(pattern) grep(pattern, names(pred_res))) %>%
     unlist()
-  prediction_cols_to_keep <- names(loso_pred_res)[prediction_cols_to_keep]
-  target_loso_pred_res <- loso_pred_res %>%
+  prediction_cols_to_keep <- names(pred_res)[prediction_cols_to_keep]
+  target_pred_res <- pred_res %>%
     select_("model",
       "region",
       "analysis_time_season",
       "analysis_time_season_week",
       .dots = prediction_cols_to_keep)
   
-  return(target_loso_pred_res)
+  return(target_pred_res)
+}
+
+#' Assemble a data frame of inputs to stacking
+#' 
+#' @param regions string with region: either "National" or in the format
+#'   "Regionk" for k in {1, ..., 10}
+#' @param prediction_target string with either "onset", "peak_week",
+#'   "peak_inc", "ph1_inc", ..., "ph4_inc"
+#' @param component_model_names character vector with names of component models
+#' @param explanatory_variables character vector with names of explanatory variables
+#'   to include for weights; a non-empty subset of "analysis_time_season_week",
+#'   "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"
+#' @param include_model_performance boolean; should measures of model
+#'   performance be included in the return result? Generally, should be TRUE if
+#'   we're getting inputs for model training and FALSE if we're just getting
+#'   covariates to calculate model weights.
+#' @param preds_path path to directory with leave-one-season-out or test phase
+#'   predictions from each component model.  Predictions should be saved in
+#'   files named like "kde-National-loso-predictions.rds"
+#'
+#' @return a data frame with covariates that model weights depend on
+#'   (as specified by explanatory_variables) and possibly log scores from each
+#'   component model
+#' 
+#' @export
+assemble_stacking_inputs <- function(
+  regions,
+  prediction_target,
+  component_model_names,
+  explanatory_variables,
+  include_model_performance = FALSE,
+  preds_path
+) {
+  ## Load prediction results
+  target_pred_res <- assemble_predictions(
+    preds_path = preds_path,
+    regions = regions,
+    models = component_model_names,
+    prediction_targets = prediction_target
+  )
+  
+  ## get model confidence
+  cols_to_examine <- grep(paste0(prediction_target, ".*_log_prob"), colnames(target_pred_res), value = TRUE)
+  target_pred_res$model_confidence <- sapply(
+    seq_len(nrow(target_pred_res)),
+    function(i) {
+      temp <- cumsum(sort(unlist(exp(target_pred_res[i, cols_to_examine])), decreasing = TRUE))
+      temp <- temp / temp[length(temp)]
+      min(which(temp >= 0.90))
+    })
+  target_pred_res_with_model_confidence <- target_pred_res %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week", "model", "model_confidence")) %>%
+    spread_("model", "model_confidence")
+  colnames(target_pred_res_with_model_confidence) <- c("region",
+    "analysis_time_season",
+    "analysis_time_season_week",
+    paste0(colnames(target_pred_res_with_model_confidence)[
+      seq(from = ncol(target_pred_res_with_model_confidence) - 2, to = ncol(target_pred_res_with_model_confidence))], "_model_confidence"))
+  
+  if(include_model_performance) {
+    ## spread log scores
+    target_pred_res_with_log_score <- target_pred_res %>%
+      select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week", "model", paste0(prediction_target, "_log_score"))) %>%
+      spread_("model", paste0(prediction_target, "_log_score"))
+    colnames(target_pred_res_with_log_score) <- c("region",
+      "analysis_time_season",
+      "analysis_time_season_week",
+      paste0(colnames(target_pred_res_with_log_score)[
+        seq(from = ncol(target_pred_res_with_log_score) - 2, to = ncol(target_pred_res_with_log_score))], "_log_score"))
+    
+    ## join to target_pred_res_with_log_score and store in target_pred_res
+    target_pred_res <- left_join(target_pred_res_with_log_score,
+      target_pred_res_with_model_confidence,
+      by = c("region",
+        "analysis_time_season",
+        "analysis_time_season_week")) %>%
+      mutate(region = ifelse(region == "National", "National", paste0("Region ", substr(region, 7, nchar(region)))))
+  } else {
+    target_pred_res <- target_pred_res_with_model_confidence %>%
+      mutate(region = ifelse(region == "National", "National", paste0("Region ", substr(region, 7, nchar(region)))))
+  }
+  
+  ## add weighted ili
+  ## Load and clean up data set
+  data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
+  data$time <- as.POSIXct(data$time)
+  
+  ## subset data to be only the region of interest
+  regions_data <- sapply(regions,
+    function(reg) {
+      if(reg == "National") {
+        return("X")
+      } else {
+        return(paste0("Region ", substr(reg, 7, nchar(reg))))
+      }
+    })
+  data <- data[data$region %in% regions_data,]
+  
+  ## join to target_pred_res
+  reduced_data <- data %>%
+    as.data.frame() %>%
+    transmute(
+      region = ifelse(region == "X", "National", region),
+      analysis_time_season = season,
+      analysis_time_season_week = season_week,
+      weighted_ili = weighted_ili
+    )
+  target_pred_res <- left_join(target_pred_res,
+    reduced_data,
+    by = c("region",
+      "analysis_time_season",
+      "analysis_time_season_week"))
+  
+  ## drop rows where any of the (response or) explanatory variables for weights
+  ## have NA values.  this is aggressive.
+  if(include_model_performance) {
+    vars_to_check <- c(paste0(component_model_names, "_log_score"), explanatory_variables)
+  } else {
+    vars_to_check <- explanatory_variables
+  }
+  target_pred_res <- target_pred_res[
+    apply(target_pred_res[, vars_to_check, drop = FALSE],
+      1,
+      function(x) {!any(is.na(x))}), # row has na?  drop if so
+    , # all columns
+    drop = FALSE]
+  
+  return(target_pred_res)
 }
 
 
@@ -62,14 +229,19 @@ assemble_loso_predictions <- function(
 #' The weights are a function of observed covariates (which?),
 #' and are obtained via gradient tree boosting
 #' 
-#' @param region string with region: either "National" or in the format
+#' @param regions string with region: either "National" or in the format
 #'   "Regionk" for k in {1, ..., 10}
-#' @param prediction_target string with either "onset_week", "peak_week",
+#' @param prediction_target string with either "onset", "peak_week",
 #'   "peak_inc", "ph1_inc", ..., "ph4_inc"
 #' @param component_model_names character vector with names of component models
+#' @param explanatory_variables character vector with names of explanatory variables
+#'   to include for weights; a non-empty subset of "analysis_time_season_week",
+#'   "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"
 #' @param loso_preds_path path to directory with leave-one-season-out
 #'   predictions from each component model.  Predictions should be saved in
 #'   files named like "kde-National-loso-predictions.rds"
+#' @param seasons_to_leave_out optional character vector of seasons to leave out
+#'   of stacking estimation
 #' @param booster what form of boosting to use? see xgboost documentation
 #' @param subsample fraction of data to use in bagging.  not supported yet.
 #' @param colsample_bytree fraction of explanatory variables to randomly select
@@ -110,7 +282,10 @@ fit_stacked_model <- function(
   regions,
   prediction_target,
   component_model_names,
+  explanatory_variables =
+    c("analysis_time_season_week", "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"),
   loso_preds_path,
+  seasons_to_leave_out,
   booster = "gbtree",
   subsample = 1,
   colsample_bytree = 1,
@@ -132,26 +307,21 @@ fit_stacked_model <- function(
   require(xgboost)
   require(xgbstack)
   
-  ## Assemble training data
-  loso_pred_res <- rbind.fill(lapply(
-    Sys.glob(paste0(loso_preds_path, "/", component_model_names, "-", regions, "*")),
-    readRDS
-  ))
+  ### Assemble training data
+  target_loso_pred_res <- assemble_stacking_inputs(
+    regions = regions,
+    prediction_target = prediction_target,
+    component_model_names = component_model_names,
+    explanatory_variables = explanatory_variables,
+    include_model_performance = TRUE,
+    preds_path = loso_preds_path
+  )
   
-  target_loso_pred_res <- loso_pred_res %>%
-    select_("model",
-      "analysis_time_season",
-      "analysis_time_season_week",
-      paste0(prediction_target, "_log_score")) %>%
-    spread_("model", paste0(prediction_target, "_log_score"))
-  
-  ## drop rows where any of the methods have NA values.  this is agressive
-  target_loso_pred_res <- target_loso_pred_res[
-    apply(target_loso_pred_res[, component_model_names],
-      1,
-      function(x) {!any(is.na(x))}), # row has na?  drop if so
-    , # all columns
-    drop = FALSE]
+  ## if requested, drop season(s)
+  if(!missing(seasons_to_leave_out)) {
+    target_loso_pred_res <- 
+      target_loso_pred_res[!(target_loso_pred_res$analysis_time_season %in% seasons_to_leave_out), ]
+  }
   
   ## get cross-validation groups if requested
   if(identical(cv_folds, "leave-one-season-out")) {
@@ -163,9 +333,9 @@ fit_stacked_model <- function(
   
   ## fit stacking model for weights
   fit_formula <- as.formula(paste0(
-    paste(component_model_names, collapse = " + "),
+    paste0(component_model_names, "_log_score", collapse = " + "),
     " ~ ",
-    "analysis_time_season_week"))
+    paste(explanatory_variables, collapse = " + ")))
   xgbstack_fit <- xgbstack(fit_formula,
     data = target_loso_pred_res,
     booster = booster,
@@ -282,6 +452,92 @@ fit_unregularized_stacked_model <- function(
       inds <- seq_len(nrow(weights_grid))
     }
     return(weights_grid[inds, seq_len(ncol(component_model_log_scores)), drop = FALSE])
+  } else {
+    stop("invalid method")
+  }
+}
+
+
+#' Estimate weights for a linear combination of predictive models.
+#' 
+#' This function uses the "degenerate EM" algorithm outlined at
+#' http://www.cs.cmu.edu/~roni/11761-f16/Presentations/degenerateEM.pdf,
+#' but modified in a way that is ad hoc but I think could be justified
+#' to use kernel-weighted observations.
+#' 
+#' @param component_model_log_scores a data frame or matrix of log scores.
+#'   Each column gives log scores for a particular predictive model.
+#'   Each row corresponds to one observation
+#' @param covariate a single covariate over which weights should be smoothed
+#'   (more than one covariate may be supported later)
+#' @param bw a bandwidth for the smoothing
+#' @param tol numeric, if method was "em", stopping tolerance
+#' 
+#' @return model weights
+#' 
+#' @export
+fit_kernel_smoothed_stacked_model_fixed_bw <- function(
+  component_model_log_scores,
+  covariate,
+  prediction_covariate,
+  bw,
+  tol = .Machine$double.eps) {
+  
+  component_model_log_scores <- as.matrix(component_model_log_scores)
+  covariate <- as.matrix(covariate)
+  prediction_covariate <- as.matrix(prediction_covariate)
+  method <- "em-safe"
+  
+  if(identical(method, "em")) {
+    weights <- rep(1 / ncol(component_model_log_scores), ncol(component_model_log_scores))
+    log_weights <- log(weights)
+    
+    prev_score <- -Inf
+    curr_score <- mean(logspace_sum_matrix_rows(sweep(component_model_log_scores, 2, log_weights, `+`)))
+    
+    while((curr_score - prev_score) > tol[1] && (curr_score - prev_score) / abs(curr_score) > tol[1]) {
+      log_weight_update_num <- sweep(component_model_log_scores, 2, log_weights, `+`)
+      log_weight_update_denom <- logspace_sum_matrix_rows(log_weight_update_num)
+      log_weights <-
+        logspace_sum_matrix_rows(t(log_weight_update_num - log_weight_update_denom)) -
+        log(nrow(component_model_log_scores))
+      
+      prev_score <- curr_score
+      curr_score <- mean(logspace_sum_matrix_rows(sweep(component_model_log_scores, 2, log_weights, `+`)))
+    }
+    return(exp(log_weights))
+  } else if(identical(method, "em-safe")) {
+    combined_weights <- matrix(NA, nrow = nrow(prediction_covariate),
+      ncol = ncol(component_model_log_scores))
+    for(i in seq_len(nrow(combined_weights))) {
+      cat(paste0("Getting weights for covariate ", i, " of ", nrow(combined_weights), ".\n"))
+      cat(Sys.time())
+      cat("\n")
+      obs_weights <- dnorm(covariate, prediction_covariate[i, ], sd = bw)
+      obs_weights <- obs_weights / sum(obs_weights)
+      
+      weights <- rep(1 / ncol(component_model_log_scores), ncol(component_model_log_scores))
+      
+      prev_score <- -Inf
+      curr_score <- weighted.mean(
+        log(exp(component_model_log_scores) %*% matrix(weights)),
+        w = obs_weights)
+      
+      while((curr_score - prev_score) / abs(curr_score) > tol[1]) {
+        weight_update_num <- exp(component_model_log_scores) *
+          matrix(rep(weights, each = nrow(component_model_log_scores)), nrow = nrow(component_model_log_scores))
+        weight_update_denom <- apply(weight_update_num, 1, sum)
+        weights <- apply(weight_update_num / weight_update_denom, 2, weighted.mean, w = obs_weights)
+        
+        prev_score <- curr_score
+        curr_score <- weighted.mean(
+          log(exp(component_model_log_scores) %*% matrix(weights)),
+          w = obs_weights)
+#        cat(curr_score)
+      }
+      combined_weights[i, ] <- weights
+    }
+    return(combined_weights)
   } else {
     stop("invalid method")
   }
