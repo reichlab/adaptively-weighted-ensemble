@@ -5,6 +5,7 @@ output:
     pdf_document:
         keep_tex: false
         citation_package: natbib
+        fig_caption: true
 date: "`r format(Sys.time(), '%B %Y')`"
 header-includes:
    - \input{GrandMacros.tex}
@@ -14,6 +15,12 @@ header-includes:
 bibliography: feature-weighted-ensembles.bib
 ---
 
+```{r init, include = FALSE}
+library(plyr)
+library(tidyr)
+library(ggplot2)
+library(awes)
+```
 
 # Abstract
 
@@ -39,7 +46,7 @@ Using seasonal influenza outbreaks in the US health regions as a case-study, we 
 
 ## Data
 
-We obtained publicly available data on seasonal influenza activity in the United States from the U.S. Centers for Disease Control and Prevention (CDC) from 1997-2016. 
+We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the U.S. Centers for Disease Control and Prevention (CDC) (\ref{fig:raw-data}). 
 For each of the 10 Health and Human Services regions in the country in addition to the nation as a whole, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
 The wILI for a particular region is calculated as the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
 During the CDC-defined influenza season (between MMWR week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
@@ -220,6 +227,39 @@ Additionally, the manuscript itself was dynamically generated using RMarkdown.
 # Results
 
 #### Figure: show the flu data \label{fig:raw-data}
+
+```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicates the cutoff time between the training and testing periods; 5 seasons of data were held out for testing."}
+flu_data$region[flu_data$region == "X"] <- "National"
+flu_data$region <- factor(flu_data$region,
+  levels = c("National", paste0("Region ", 1:10)))
+
+regions_to_plot <- c("National", "Region 1", "Region 7")
+#regions_to_plot <- c("National", paste0("Region ", 1:10))
+
+train_cutoff_ind <- min(which(flu_data$season == "2011/2012"))
+train_cutoff_time <- flu_data$time[train_cutoff_ind]
+train_cutoffs <- data.frame(
+  region = regions_to_plot,
+  train_cutoff_time = as.numeric(as.Date(train_cutoff_time))
+)
+
+ggplot() +
+  geom_line(aes(x = as.Date(time), y = weighted_ili),
+    data = flu_data[flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = as.numeric(as.Date(time))),
+    colour = "grey",
+    data = flu_data[is.na(flu_data$weighted_ili) & flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = train_cutoff_time),
+    colour = "red",
+    linetype = 2,
+    data = train_cutoffs) +
+  facet_wrap(~ region, ncol = 1) +
+  scale_x_date() +
+  xlab("Time") +
+  ylab("Weighted Proportion of Doctor's Office Visits\nwith Influenza-like Illness\n") +
+  ggtitle("Influenza Data by Region") +
+  theme_bw(base_size = 11)
+```
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
 
