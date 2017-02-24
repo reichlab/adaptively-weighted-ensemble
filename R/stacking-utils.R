@@ -178,9 +178,7 @@ assemble_stacking_inputs <- function(
   
   ## add weighted ili
   ## Load and clean up data set
-  data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
-  data$time <- as.POSIXct(data$time)
-  
+
   ## subset data to be only the region of interest
   regions_data <- sapply(regions,
     function(reg) {
@@ -190,13 +188,13 @@ assemble_stacking_inputs <- function(
         return(paste0("Region ", substr(reg, 7, nchar(reg))))
       }
     })
-  data <- data[data$region %in% regions_data,]
+  data <- flu_data[flu_data$region %in% regions_data,]
   
   ## join to target_pred_res
   reduced_data <- data %>%
     as.data.frame() %>%
     transmute(
-      region = ifelse(region == "X", "National", region),
+      region = ifelse(region == "X", "National", as.character(region)),
       analysis_time_season = season,
       analysis_time_season_week = season_week,
       weighted_ili = weighted_ili
