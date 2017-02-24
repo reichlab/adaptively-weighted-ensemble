@@ -236,7 +236,7 @@ flu_data$region <- factor(flu_data$region,
 
 regions_to_plot <- c("National", "Region 1", "Region 7")
 #regions_to_plot <- c("National", paste0("Region ", 1:10))
-
+  
 train_cutoff_ind <- min(which(flu_data$season == "2011/2012"))
 train_cutoff_time <- flu_data$time[train_cutoff_ind]
 train_cutoffs <- data.frame(
@@ -264,7 +264,9 @@ ggplot() +
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
 
-```{r log_scores_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="version 1 of log scores plot: vertical axis is mean log score across all seasons from 1999/2000 - 2015/2016 (both train and test, drop first two train seasons for all models since sarima made no predictions then and they were weird), faceted by prediction target and component model.  separate line for each region"}
+```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
 log_scores <- bind_rows(
     assemble_predictions(
       preds_path = "../../inst/estimation/loso-predictions",
@@ -285,35 +287,123 @@ log_scores <- bind_rows(
     paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
   mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
 
-mean_log_scores <- log_scores %>%
+
+summarized_log_scores <- log_scores %>%
   filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
   group_by(model, region, prediction_target, analysis_time_season_week) %>%
-  summarize(mean_log_score = mean(log_score))
-
-ggplot(mean_log_scores) +
-  geom_line(aes(x = analysis_time_season_week, y = mean_log_score, group = region)) +
-  facet_grid(model ~ prediction_target) +
-  theme_bw()
-```
-
-```{r log_scores_v2, echo=FALSE, fig.height=8, fig.cap="version 2 of log scores plot: data subset to national only, just training seasons (except for first two as above), facetted by season and prediction target"}
-ggplot(log_scores[log_scores$region == "National" & log_scores$analysis_time_season %in% paste0(1999:2010, "/", 2000:2011), ]) +
-  geom_line(aes(x = analysis_time_season_week, y = log_score, colour = model, linetype = model)) +
-  facet_grid(analysis_time_season ~ prediction_target) +
-  theme_bw()
-```
-
-```{r log_scores_v3, echo=FALSE, fig.height=8, fig.cap="version 3 of log scores plot: data subset to the same 3 regions used in the first plot above, all seasons (both test and tarining, except for first two as above), facetted by region and prediction target, mean log scores across all seasons"}
-mean_log_scores <- log_scores %>%
-  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
-  group_by(model, region, prediction_target, analysis_time_season_week) %>%
-  summarize(mean_log_score = mean(log_score))
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model))
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "onset"] <- "Onset Timing"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_inc"] <- "Peak Incidence"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_week"] <- "Peak Timing"
+summarized_log_scores$prediction_target <- factor(summarized_log_scores$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
 
 regions_to_plot <- c("National", "Region1", "Region7")
 
-ggplot(mean_log_scores[mean_log_scores$region %in% regions_to_plot, ]) +
-  geom_line(aes(x = analysis_time_season_week, y = mean_log_score, colour = model, linetype = model)) +
+ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  scale_fill_manual(values = color_palette) +
+  scale_colour_manual(values = color_palette) +
   facet_grid(region ~ prediction_target) +
+  xlab("Week of Season at Analysis Time") +
+  ylab("Log Score") +
+  ggtitle("Log Scores vs. Week of Season at Analysis Time") +
+  theme_bw()
+```
+
+```{r log_scores_vs_confidence, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Mean, minimum, and maximum log scores achieved by each component model for each value of model confidence, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+log_scores_with_confidence <- bind_rows(
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "onset",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = "../../inst/estimation/loso-predictions" # path relative to inst/manuscript
+  ) %>%
+    mutate(prediction_target = "onset"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_week",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = "../../inst/estimation/loso-predictions"
+  ) %>%
+    mutate(prediction_target = "peak_week"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_inc",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = "../../inst/estimation/loso-predictions"
+  ) %>%
+    mutate(prediction_target = "peak_inc")
+)
+
+log_scores_with_confidence_long <- left_join(
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    gather_("model", "log_score",
+      c("kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 10)),
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target",
+      "kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    gather_("model", "model_confidence",
+      c("kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 17)),
+  by = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "model")
+)
+
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "onset"] <- "Onset Timing"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_inc"] <- "Peak Incidence"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_week"] <- "Peak Timing"
+log_scores_with_confidence_long$prediction_target <- factor(log_scores_with_confidence_long$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+regions_to_plot <- c("National", "Region 1", "Region 7")
+
+ggplot(log_scores_with_confidence_long[log_scores_with_confidence_long$region %in% regions_to_plot, ]) +
+  geom_point(aes(x = model_confidence, y = log_score, colour = model, shape = model),
+    alpha = 0.5,
+    position = position_jitter()) +
+  scale_colour_manual(values = color_palette) +
+  facet_grid(region ~ prediction_target, scales = "free_x") +
+  xlab("Model Confidence") +
+  ylab("Log Score") +
+  ggtitle("Log Scores vs. Model Confidence") +
   theme_bw()
 ```
 
