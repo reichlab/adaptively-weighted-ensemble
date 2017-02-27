@@ -18,11 +18,7 @@
 #' @export
 weighted_combine_predictions <- function(
   component_preds,
-  region,
-  models = c("kde", "kcde", "sarima"),
-  prediction_target,
-  weights,
-  weighting_method = "") {
+  weights) {
   if(length(region) != 1L) {
     stop("region must be length 1")
   }
@@ -43,6 +39,8 @@ weighted_combine_predictions <- function(
 #' @param preds_path path to leave-one-season-out or test phase predictions.
 #' @param regions character vector specifying regions for which to get predictions,
 #'   "National" or "Regionk" for k in 1, ..., 10.
+#' @param seasons character vector specifying seasons for which to get predictions,
+#'   "2011/2012" or "2011-2012" or "*" for all seasons
 #' @param models character vector specifying models for which to get predictions,
 #'   "kde", "kcde", or "sarima"
 #' @param prediction_targets character vector specifying prediction targets,
@@ -56,19 +54,30 @@ weighted_combine_predictions <- function(
 assemble_predictions <- function(
   preds_path = "inst/estimation/loso-predictions",
   regions = c("National", paste0("Region", 1:10)),
+  seasons = "*",
   models = c("kde", "kcde", "sarima"),
   prediction_targets = c("onset", "peak_week", "peak_inc", "ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc"),
   prediction_types = c("log_score", "competition_log_score", "bin_log_probs")
   ) {
+  ## Seasons in format used in prediction file names
+  seasons <- gsub("/", "-", seasons)
   
+  ## names of files with prediction results to load
+  model_region_season_combos <- expand.grid(
+    model = models,
+    region = regions,
+    season = seasons,
+    stringsAsFactors = TRUE
+  )
+  file_name_patterns <- apply(model_region_season_combos, 1,
+    function(combo) {
+      paste0(preds_path, "/", combo["model"], "-", combo["region"], "-", combo["season"], "*")
+    })
+  file_names <- Sys.glob(file_name_patterns)
+  
+  ## load the prediction results
   pred_res <- rbind.fill(lapply(
-    Sys.glob(outer(
-      models,
-      regions,
-      function(model, region) {
-        paste0(preds_path, "/", model, "-", region, "-*")
-      }
-    )),
+    file_names,
     function(file_path) {
       region_val <- names(unlist(sapply(regions, function(region_val) grep(paste0(region_val, "-"), file_path))))
       readRDS(file_path) %>%
@@ -76,6 +85,7 @@ assemble_predictions <- function(
     }
   ))
   
+  ## narrow down to the specified prediction targets and types
   prediction_cols_to_keep_templates <- outer(prediction_targets, prediction_types,
     function(target, type) {
       paste0(target, "_", ifelse(type == "bin_log_probs", "bin_.*_log_prob", type))
