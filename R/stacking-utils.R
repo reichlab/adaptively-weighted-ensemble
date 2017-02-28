@@ -1,35 +1,103 @@
 ## utility functions that might be useful for multiple prediction methods
 
-#' Compute and save a weighted combination of prediction results for the test
-#' phase.
+#' Compute a weighted combination of prediction results
 #' 
-#' @param preds_path path to test phase prediction results
-#' @param region character specifying a single region in the form of "National"
-#'   or "Regionk" for k in 1, ..., 10
-#' @param models character vector specifying component models whose predictions
-#'   should be combined
-#' @param matrix of model weights.  one column for each entry in "models", in
-#'   the same order.  one row for each row in 
-#' @param weighting_method character string specifying method name for
-#'   weighting; used as part of save file name
+#' @param component_preds data frame of predictions from component models
+#' @param weights data frame of model weights
+#' @param log_weights data frame of (log) model weights
 #' 
-#' @return weighted combination of predictions
+#' @return data frame with weighted combination of predictions
 #' 
 #' @export
 weighted_combine_predictions <- function(
   component_preds,
-  weights) {
-  if(length(region) != 1L) {
-    stop("region must be length 1")
+  weights,
+  log_weights) {
+  log_weights_missing <- missing(log_weights)
+  if(log_weights_missing) {
+    if(!missing(weights)) {
+      log_weights <- weights
+    } else {
+      stop("Must provide at least one of weights, log_weights")
+    }
   }
-  component_preds <- assemble_predictions(
-    preds_path = preds_path,
-    regions = region,
-    models = models,
-    prediction_targets = prediction_target
-  )
   
+  ## all possible prediction targets and types
+  prediction_targets <- c("onset", "peak_inc", "peak_week", "ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc")
+  prediction_types <- c("log_score", "competition_log_score", "bin_log_probs")
   
+  ## prediction targets for which weights were supplied
+  prediction_targets_used <- colnames(log_weights)[colnames(log_weights) %in% prediction_targets]
+  
+  ## variables on which weights depend
+  weighting_covars <- colnames(log_weights)[!(colnames(log_weights) %in% prediction_targets)]
+  
+  ## variables that, taken together, uniquely identify cases for which predictions were made
+  unique_case_id_vars <- c("region", "analysis_time_season", "analysis_time_season_week")
+  
+  ## if log weights was missing, need to take log of provided weights
+  if(log_weights_missing) {
+    log_weights[, prediction_targets_used] <- log(log_weights[, prediction_targets_used])
+  }
+  
+  ## add log_weights columns to predictions from component models
+  component_preds <- left_join(component_preds,
+    log_weights,
+    by = weighting_covars)
+  
+  ## number of models
+  num_models <- length(unique(log_weights$model))
+  
+  ## compute weighted sum of model predictions for each prediction target
+  for(prediction_target in prediction_targets) {
+    for(prediction_type in prediction_types) {
+      ## which columns contain predictions for given target/type.  use column
+      ## names because column indices may differ in component_preds and combined_preds
+      prediction_cols_to_combine <- grep(
+        paste0(prediction_target, "_", ifelse(prediction_type == "bin_log_probs", "bin_.*_log_prob", prediction_type)),
+        colnames(component_preds))
+      prediction_cols_to_combine <- colnames(component_preds)[prediction_cols_to_combine]
+      
+      ## if prediction target has associated weights, weight predictions from component models
+      ## otherwise, set predictions from component models to NA
+      if(prediction_target %in% prediction_targets_used) {
+        component_preds[, prediction_cols_to_combine] <-
+          component_preds[, prediction_cols_to_combine] +
+          component_preds[, prediction_target]
+      } else {
+        component_preds[, prediction_cols_to_combine] <- NA
+      }
+    }
+  }
+  
+  cols_to_summarize <- colnames(component_preds)[
+    !(colnames(component_preds) %in% c("model", prediction_targets_used))
+  ]
+  cols_to_sum <- cols_to_summarize[!(cols_to_summarize %in% unique_case_id_vars)]
+  
+  ## split by unique_case_id_vars, summarize each, and rejoin
+  split_component_preds <- split(component_preds[, cols_to_summarize],
+    component_preds[, unique_case_id_vars])
+  combined_preds <- rbind.fill(lapply(split_component_preds,
+    function(comp) {
+      res <- cbind(
+        comp[1, cols_to_summarize[!(cols_to_summarize %in% cols_to_sum)], drop = FALSE],
+        apply(comp[, cols_to_sum], 2, logspace_sum) %>%
+          `dim<-`(c(1, length(cols_to_sum))) %>%
+          as.data.frame() %>%
+          `colnames<-`(cols_to_sum)
+      )
+      
+      if(!identical(nrow(comp), num_models)) {
+        warning("predictions from all component models not available.")
+        res[, cols_to_sum] <- NA
+      }
+      
+      return(res)
+    }
+  ))
+  
+  return(combined_preds)
 }
 
 

@@ -15,8 +15,8 @@ weights <- foreach(region = c("National", paste0("Region", 1:10))) %dopar% {
   rbind.fill(lapply(
     c("onset", "peak_week", "peak_inc"),
     function(prediction_target) {
-      loso_pred_res <- assemble_loso_predictions(
-        loso_preds_path = "inst/estimation/loso-predictions",
+      loso_pred_res <- assemble_predictions(
+        preds_path = "inst/estimation/loso-predictions",
         regions = region,
         models = models,
         prediction_targets = prediction_target,
