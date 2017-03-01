@@ -32,3 +32,8 @@ for(first_season_year in 2006:1997) {
 }
 
 write.csv(dat, "data-raw/cdc-baselines.csv", quote = FALSE, row.names = FALSE)
+
+## code below here was added and run on 3/1/2017:
+flu_onset_baselines <- read.csv("data-raw/cdc-baselines.csv", stringsAsFactors = FALSE)
+
+save(flu_onset_baselines, file = "data/flu_onset_baselines.rdata")

@@ -329,12 +329,11 @@ compute_competition_log_score <- function(bin_log_probs,
 #' @export
 get_onset_baseline <- function(region, season = "2015/2016") {
   ## pick baseline
-  baselines <- read.csv(file="data-raw/cdc-baselines.csv")
-  
   ## assumes region is either "X" or "Region k" format
   reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
-  idx <- which(baselines$region==reg_string & baselines$season==season)
-  reg_baseline <- baselines[idx, "baseline"]
+  idx <- which(flu_onset_baselines$region==reg_string &
+      flu_onset_baselines$season==season)
+  reg_baseline <- flu_onset_baselines[idx, "baseline"]
   
   return(reg_baseline)
 }
