@@ -42,26 +42,40 @@ For millenia, infectious diseases have been one of the central existential threa
 
 The observation that motivated the development of the method presented in this manuscript was seeing how certain prediction models for infectious disease consistently performed better than other models at certain times of year. We set out to determine whether past model performance could improve predictions using feature-weighted model stacking. We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy.
 
-Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several features of the influenza season at each week during the season. 
-
-
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several features of the influenza season at each week during the season.
 
 # Methods
 
-## Data
+While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking.  In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  Then in a second stage, a stacking model is trained using those cross-validation results as an input to learn how to combine predictions from the component models. [[TODO: move this paragraph to intro.?  I think it needs to come before the "Component models" subsection below to motivate why we're doing cross-validation.]]
 
-We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the U.S. Centers for Disease Control and Prevention (CDC) (\ref{fig:raw-data}). 
+We begin this section with a discussion of the motivating prediction task for our method development, including a description of the influenza data we use in our application and the prediction targets, which measure aspects of infectious disease incidence over the course of the influenza season.
+Next, we discuss the three component models that our ensemble builds on.
+Finally, we turn to the ensemble methods, describing our ensemble model specification as well as two reference models that we use to indicate baseline ensemble performance in our application.
+
+## Data and prediction task
+
+We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the U.S. Centers for Disease Control and Prevention (CDC) (Figure \ref{fig:raw-data}). 
 For each of the 10 Health and Human Services regions in the country in addition to the nation as a whole, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
 The wILI for a particular region is calculated as the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
-During the CDC-defined influenza season (between MMWR week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
+During the CDC-defined influenza season (between Morbidity and Mortality Weekly Report [MMWR] week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
 This includes "current" wILI data from two weeks prior to the reporting date, as well as updates to previously reported numbers as new data becomes available. 
 For this analysis, we use only the final reported wILI measures to train and predict from our models.
 
 The CDC defines the influenza season onset as the first of three successive weeks of the season for which wILI is greater than or equal to a threshold that is specific to the region and season. 
-This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations.\citep{cdc2016}
-The CDC provides historical threshold values for each region going back to the 2007/2008 season.\citep{cdc2016-baselines}
+This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations \citep{cdc2016}.
+The CDC provides historical threshold values for each region going back to the 2007/2008 season \citep{cdc2016-baselines}. Additionally, we define two other metrics specific to a region-season.
+The peak incidence is the maximum observed wILI measured in a season. The peak week is the week at which the maximum wILI for the season is observed.
 
-Additionally, we define two other metrics specific to a region-season. The peak week is the week at which the maximum wILI for the season is observed. The peak incidence is the maximum observed wILI measured in a season.
+Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
+For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
+For peak week, the bins are represented by integer values for each possible season week.
+For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), [0.15, 0.25), ..., [12.95, 13.05), [13.05, $\infty$).  These bins were used in the 2016-2017 influenza prediction contest run by the CDC (cite something).
+
+We measure the accuracy of predictive distributions using the log score.
+The log score is a proper scoring rule\citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
+Proper scoring rules are preferred for measuring the quality of predictive distributions because the expected score is optimized by the true probabilty distribution.
+We note that for peak week, the in some region-seasons the same peak incidence was achieved in multiple weeks (after rounding to one decimal place).
+In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC (cite something).
 
 ## Component models
 We used three component models to generate probabilistic predictions of these three quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation and model selection approach to fit a model to the data. All models were fit independently on data within a particular region.
@@ -95,37 +109,61 @@ We fit seasonal ARIMA models \citep{Box2015} to wILI observations transformed to
 [[TODO: Specifications for forecast algorithm - what method used?]] 
 Similar to KCDE, forecasts were obtained as trajectories of wILI values over the rest of the season and predictive distributions of the targets were computed as described above.
 
-## Model training and cross-validation
+### Component model training
 
 We used data from 14 seasons (1997/1998 through 2010/2011) to train the models. 
 Data from five seasons (2011/2012 through 2015/2016) were held out when fitting the models and used exclusively in the testing phase. 
-Care was taken to ensure that our test predictions were made only once, to avoid overfitting our models \citep{Hastie2011}.
+To avoid overfitting our models, we made predictions for the test phase only once \citep{Hastie2011}.
 
-For each model-region pair, we fitted the model 14 times, each time excluding one training season during the fitting.
-Then for each season-week within the left-out season, we generated a set of three predictive distributions, one for each of the prediction targets. 
-In total, this generated nearly 45,000 predictive distributions across the entire training phase: 3 targets x 3 models x 11 regions x 14 training seasons x 32 weeks per season.
-(Several of the training seasons had 33 weeks per season because they contained an MMWR week 53.)
-
-Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
-For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
-For peak week, the bins are represented by integer values for each possible season week.
-For peak incidence, the bins are intervals of length 0.1 from [0, 0.1), [0.1, 0.2), ..., [12.9, 13.0), with a final bin that captures all high incidence values, [13.0, $\infty$].
-[[TODO: Is this capturing all of the subtlety of rounding in bins? ]]
-
-Using the eventually observed value for each of the three outcomes, we then calculated the log-score achieved by each of predictive distributions across the entire training period.
-The log score is a proper scoring rule\citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation. 
+For each region, we estimated the parameters of each component model 14 times, excluding one training season at a time.
+Then for each season-week within the left-out season, we generated a set of three predictive distributions, one for each of the prediction targets.  We were not able to generate predictions from the SARIMA and KCDE models for some seasons in the training phase because those models used lagged observations from previous seasons that were missing in our data set.
 
 
-## Ensemble model overview
+## Ensemble methods
 
-By definition, ensemble models combine a set of models into one single model. 
-While there are many different methods for combining models, all ensemble models discussed in this paper use a model averaging methodology called "stacking", whereby predictions from different models are averaged to obtain the ensemble prediction.\citep{Hastie2011} 
-In particular, we considered only models that create probabilistic predictive distributions as described above.
-We implemented several simple stacking procedures to use as reference ensemble methods for our proposed stacking methodology. 
-This ensured that the new methodology could be compared with less complex methods as a baseline. 
+We begin our discussion of ensemble methods with the novel feature-weighted stacking framework that we propose.
+We discuss the stacking model specification, estimation, and several variations on the model that we will use in our application.
+Next, we describe two simpler stacking approaches that we use as reference ensemble methods for our proposed stacking methodology.
 
-We propose a novel framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
-By _feature-dependent_ we mean that the optimal weights associated with different component models are driven by observed features or covariates.
+All of these methods work by averaging predictions from the component models to obtain the ensemble prediction.
+With this approach, the ensemble predictions are guaranteed to be predictive distributions that integrate to one.
+Additionally, all of the ensemble methods we compare are stacked model ensembles because they use leave-one-season-out predictions from the separately-estimated component models as inputs to estimate the model weights (cite friedman stacking paper?).
+
+
+## Feature-weighted stacking framework
+
+This method was motivated by our observation in earlier work that there are nonlinearities in the relative performance of different models as a function of the time of year at which predictions are made. 
+The framework described above in Equation \eqref{eqn:rhoSplineExpansion} could be used to capture these nonlinearities.
+Specifically, we estimate the functions $\rho_m(\bX)$ using gradient tree boosting.
+
+Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees that, when added together, create a function designed to minimize a given loss function. 
+In our application, the algorithm builds up the $\rho_m(\bX)$ that minimize the negative log-score of the stacked prediction $f(y|\bX)$. 
+
+Parameters of the algorithm: depth of trees (number of splits within each tree?), number of boosting iterations (is this $N$, below? like a total number of trees), "learning rate".
+
+Specifically, we define a single tree as
+\begin{equation}
+T(\bX; \Theta) = \sum_{j=1}^J \gamma_j I(\bX \in R_j)
+\end{equation}
+where the $R_j$ are a disjoint set of regions that comprise a partition of the space of all predictor variables. 
+Additionally, the model takes $\Theta = \{R_j, \gamma_j \}_{1:J}$ as parameters with $J$ as a meta-parameter.
+Then the sum of the $N$ trees represents the function
+\begin{equation}
+\rho_m(\bX) = \sum_{n=1}^N T(\bX; \Theta_n).
+\end{equation}
+[[TODO: check formulation above, including mention of whether estimation for each model m is done separately or jointly]]
+
+Additionally, we have introduced regularization into our estimation of the $\rho_m$ functions. 
+For now, weight regularization is done through three parameters; optimal values of those parameters are selected through cross-validation and a single best weighting scheme is selected.  
+The parameters are the depth of the regression trees used in the gradient tree boosting process, the number of boosting iterations, and the learning rate.
+
+We ensure that the the $\pi_m$ are non-negative and sum to 1 by parameterizing the $\pi_m$ in terms of the softmax transformation of real-valued functions $\rho_m$ in Equation \eqref{eqn:PiSoftmaxRho}.  
+Therefore for models $l, m \in \{1, ..., M\}$, $\rho_l(\bX) > \rho_m(\bX)$ indicates that model $l$ has more weight than model $m$ for predictions at the given value of $\bX$.
+
+## Baseline ensemble methods
+
+We propose a framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
+By _feature-dependent_ we mean that the weights associated with different component models are driven by observed features or covariates.
 Although we illustrate the method in the context of time-series predictions, the method could also be used for any model using stacking to generate predictive distributions.
 Features could include observed data from the system being predicted (such as recent wILI measurements or the time of year at which predictions are being made), observed data from outside the system (for example, recent weather observations), or features of the predictions themselves (e.g. summaries of the predictive distribution itself, such as a measure of spread in the distribution, or the time since a predicted peak).
 Based on exploration of training phase data and _a priori_ knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: 
@@ -167,36 +205,6 @@ Each of the ensemble models, along with the three component models, are used to 
 These predictions are then used to evaluate the prospective predictive performance of each of the ensemble methods. 
 In total, we evaluate [[TODO: total_ensemble_models + total_component_models]] models in 11 regions over 5 years and 3 targets of interest. 
 
-## Feature-weighted stacking framework
-
-This method was motivated by our observation in earlier work that there are nonlinearities in the relative performance of different models as a function of the time of year at which predictions are made. 
-The framework described above in Equation \eqref{eqn:rhoSplineExpansion} could be used to capture these nonlinearities.
-Specifically, we estimate the functions $\rho_m(\bX)$ using gradient tree boosting.
-
-Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees that, when added together, create a function designed to minimize a given loss function. 
-In our application, the algorithm builds up the $\rho_m(\bX)$ that minimize the negative log-score of the stacked prediction $f(y|\bX)$. 
-
-Parameters of the algorithm: depth of trees (number of splits within each tree?), number of boosting iterations (is this $N$, below? like a total number of trees), "learning rate".
-
-Specifically, we define a single tree as
-\begin{equation}
-T(\bX; \Theta) = \sum_{j=1}^J \gamma_j I(\bX \in R_j)
-\end{equation}
-where the $R_j$ are a disjoint set of regions that comprise a partition of the space of all predictor variables. 
-Additionally, the model takes $\Theta = \{R_j, \gamma_j \}_{1:J}$ as parameters with $J$ as a meta-parameter.
-Then the sum of the $N$ trees represents the function
-\begin{equation}
-\rho_m(\bX) = \sum_{n=1}^N T(\bX; \Theta_n).
-\end{equation}
-[[TODO: check formulation above, including mention of whether estimation for each model m is done separately or jointly]]
-
-Additionally, we have introduced regularization into our estimation of the $\rho_m$ functions. 
-For now, weight regularization is done through three parameters; optimal values of those parameters are selected through cross-validation and a single best weighting scheme is selected.  
-The parameters are the depth of the regression trees used in the gradient tree boosting process, the number of boosting iterations, and the learning rate.
-
-We ensure that the the $\pi_m$ are non-negative and sum to 1 by parameterizing the $\pi_m$ in terms of the softmax transformation of real-valued functions $\rho_m$ in Equation \eqref{eqn:PiSoftmaxRho}.  
-We avoid identifiability problems by fixing $\rho_M(\bX) = 0$ for all $\bX$.  
-Therefore for models $m \in \{1, ..., M-1\}$, $\rho_m(\bX) > 0$ indicates that model $m$ has more weight than the baseline model for predictions at the given value of $\bX$. 
 
 ## Model testing
 
@@ -230,9 +238,7 @@ Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
 
-#### Figure: show the flu data \label{fig:raw-data}
-
-```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicates the cutoff time between the training and testing periods; 5 seasons of data were held out for testing."}
+```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
 flu_data$region[flu_data$region == "X"] <- "National"
 flu_data$region <- factor(flu_data$region,
   levels = c("National", paste0("Region ", 1:10)))
