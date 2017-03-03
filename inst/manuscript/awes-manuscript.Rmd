@@ -11,6 +11,7 @@ header-includes:
    - \input{GrandMacros.tex}
    - \usepackage{setspace}\onehalfspacing
    - \usepackage{lineno}\linenumbers
+   - \usepackage{booktabs}
    - \renewcommand{\familydefault}{cmss}
 bibliography: feature-weighted-ensembles.bib
 ---
@@ -40,7 +41,7 @@ Using component models that generate predictive densities for outcomes of intere
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind. Even in today's modern and scientific world, the spectre of a global pandemic appears to be a real possibility. The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics. With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies." [ADD CITATION: http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm]
 
-Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year.  We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy. We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
+Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year (Figure \ref{fig:ComponentModelLogScoresVsWeek}).  We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy. We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
 [[TODO: Insert 1-paragraph ensemble methods literature review here.]]
 
@@ -52,7 +53,7 @@ Using seasonal influenza outbreaks in the US health regions as a case-study, we 
 
 We begin this section with a discussion of the motivating prediction task for our method development, including a description of the influenza data we use in our application and the prediction targets.
 Next, we discuss the three component models that our ensemble builds on.
-Finally, we turn to the ensemble methods, describing our ensemble model specification as well as two reference models that we use to indicate baseline ensemble performance in our application.
+Finally, we turn to the ensemble methods, describing our ensemble model specification as well as two reference models that we use to indicate baseline ensemble performance.
 
 ## Data and prediction targets
 
@@ -124,94 +125,117 @@ We were not able to generate predictions from the SARIMA and KCDE models for som
 The component model fits based on all of the training data were used to generate predictions for the test phase.
 
 
-## Ensemble methods
+## Ensemble models
 
-We begin our discussion of ensemble methods with the novel feature-weighted stacking framework that we propose.
-We discuss the stacking model specification, estimation, and several variations on the model that we will use in our application.
-Next, we describe two simpler stacking approaches that we use as reference ensemble methods for our proposed stacking methodology.
+All of the ensemble models we consider in this article work by averaging predictions from the component models to obtain the ensemble prediction.
+Additionally, these methods are stacked model ensembles because they use leave-one-season-out predictions from the independently estimated component models as inputs to estimate the model weights ([[TODO: cite something -- wolpert stacking paper?]]).
+We begin our discussion of ensemble methods with a general overview, introducing a common set of notation and giving a broad outline of the ensemble models we will use in this article.
+We then describe our proposed feature-weighted stacking ensemble model specification in more detail.
 
-All of these methods work by averaging predictions from the component models to obtain the ensemble prediction.
-With this approach, the ensemble predictions are guaranteed to be predictive distributions that integrate to one.
-Additionally, all of the ensemble methods we compare are stacked model ensembles because they use leave-one-season-out predictions from the separately-estimated component models as inputs to estimate the model weights (cite friedman stacking paper?).
+### Overview of ensemble models
 
+A single set of notation can be used to describe all of the ensemble frameworks implemented here.
+Let $f_m(y|\bx^{(m)})$ denote the predictive density from component model $m$ for the value of the scalar random variable $Y$ conditional on observed variables $\bx^{(m)}$.  For example, $Y$ could represent the peak incidence for a given season and region.
+In the context of time series predictions, the covariate vector $\bx^{(m)}$ may include time-varying covariates such as the week at which the prediction is made or lagged incidence; we suppress that dependence on time in our notation for the sake of simplicity.  The superscript $^{(m)}$ reflects the fact that each component model may use a different set of covariates.
+
+The combined predictive density $f(y|\bx)$ for a particular target can be written as 
+\begin{equation}
+f(y|\bx) = \sum_{m = 1}^M \pi_m(\bx) f_m(y|\bx^{(m)}). \label{eqn:EnsembleModel} 
+\end{equation}
+In Equation \eqref{eqn:EnsembleModel} the $\pi_m$ are the model weights, which are allowed to vary as a function of observed features in $\bx$.  We define $\bx$ to be a vector of all observed quantities that are used by any of the component models or in calculating the model weights.  In order to guarantee that $f(y|\bx)$ is a probability distribution we require that $\sum_{m = 1}^M \pi_m(\bx) = 1$ for all $\bx$.
+
+In the following subsection, we propose a framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
+By _feature-dependent_ we mean that the weights associated with different component models are driven by observed features or covariates.
+Although we illustrate the method in the context of time-series predictions, the method could be used in any setting where we wish to combine distribution estimates from multiple models.
+Features could include observed data from the system being predicted (such as recent wILI measurements or the time of year at which predictions are being made), observed data from outside the system (for example, recent weather observations), or features of the predictions themselves (e.g. summaries of the predictive distributions from the component models, such as a measure of spread in the distribution, or the time until a predicted peak).
+Based on exploration of training phase data and _a priori_ knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: 
+week of season, 
+component model uncertainty (defined as the minimum number of predictive distribution bins required to cover 90% probability), and 
+wILI measurement at the time of prediction.
+
+We used four distinct methodologies to define weights to use for the stacking models:
+
+1. Equal Weights (\textbf{EW}): $\pi_m(\bx) = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bx$.
+
+2. Constant model weights via degenerate EM (\textbf{dEM}): $\pi_m(\bx) = c_m$, a constant where $\sum_{m=1}^M c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization (dEM) algorithm \citep{Lin2004}.  A separate set of weights is estimated for each region and prediction target.
+
+3. Feature-weighted (\textbf{FW}): $\pi_m(\bx)$ depends on features including week of the season and model uncertainty for the KCDE and SARIMA models.  A separate set of weighting functions is estimated for each region and prediction target.
+
+4. Feature-weighted with regularization: $\pi_m(\bx)$ depends on features, but with regularization discouraging the weights from taking extreme values or from varying too quickly as a function of $\bx$.  A separate set of weighting functions is estimated for each region and prediction target.  We fit three variations on this ensemble model, using different sets of features:
+    a. (\textbf{FW-reg-w}) week of the season;
+    b. (\textbf{FW-reg-wu}) week of the season and model uncertainty for the KCDE and SARIMA models;
+    c. (\textbf{FW-reg-wui}) week of the season, model uncertainty for the KCDE and SARIMA models, and incidence (wILI) in the most recent week.
+
+All in all, this leads to 6 ensemble models, summarized in Table \ref{tbl:EnsembleModelSummaryTable}.  The first three of these models (\textbf{EW}, \textbf{dEM}, and \textbf{FW}) can be viewed as variations on \textbf{FW-reg-wu} if we vary the amount and type of regularization imposed on the \textbf{FW-reg-wu} model.  Thus, comparisons among these four models will allow us to explore the benefits of allowing the model weights to depend on covariates while imposing an appropriate amount of rigidity on the model weight functions $\pi_m(\bx)$.  We will discuss the regularization strategies used in \textbf{FW-reg-wu} further in the next subsection.  Meanwhile, comparisons among the \textbf{FW-reg-w}, \textbf{FW-reg-wu}, and \textbf{FW-reg-wui} models will allow us to explore the relative contributions to predictive performance that can be achieved by allowing the model weights to depend on different features.
+
+\begin{table}[hp]
+\centering
+\begin{tabular}{rcccccc}
+\toprule
+         & \multicolumn{6}{c}{Component Model Weights Vary with...} \\
+\cline{2-7}
+  &   & Prediction & Week of & SARIMA & KCDE & Current \\ 
+Model & Region & Target & Season & Uncertainty & Uncertainty & wILI \\ 
+  \hline
+EW &   &   &   &   &   &   \\
+dEM & X & X &   &   &   &   \\
+FW & X & X & X & X &   &   \\
+FW-reg-w & X & X & X &   &   &   \\
+FW-reg-wu & X & X & X & X & X &   \\
+FW-reg-wui & X & X & X & X & X & X \\
+\bottomrule
+\end{tabular}
+\caption{\label{tbl:EnsembleModelSummaryTable}Summary of ensemble methods and what the model weights depend on.}
+\end{table}
+
+Each of the six ensemble models, along with the three component models, are used to generate predictions in every season-week of each of the five testing seasons, assuming perfect reporting. 
+These predictions are then used to evaluate the prospective predictive performance of each of the ensemble methods. 
+In total, we evaluate 9 models in 11 regions over 5 years and 3 targets of interest. 
 
 ## Feature-weighted stacking framework
 
-This method was motivated by our observation in earlier work that there are nonlinearities in the relative performance of different models as a function of the time of year at which predictions are made. 
-The framework described above in Equation \eqref{eqn:rhoSplineExpansion} could be used to capture these nonlinearities.
-Specifically, we estimate the functions $\rho_m(\bX)$ using gradient tree boosting.
+In this section we introduce the particular specification of the parameter weight functions $\pi_m(\bx)$ that we use and discuss estimation.
+
+In order to ensure that the the $\pi_m$ are non-negative and sum to 1 for all values of $\bx$, we parameterize them in terms of the softmax transformation of real-valued latent functions $\rho_m$:  
+\begin{equation}
+\pi_{m}(\bx) = \frac{\exp\{\rho_m(\bx)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bx)\}}.  \label{eqn:PiSoftmaxRho} 
+\end{equation}
+For a pair of models $l, m \in \{1, ..., M\}$, $\rho_l(\bx) > \rho_m(\bx)$ indicates that model $l$ has more weight than model $m$ for predictions at the given value of $\bx$.
+
+The functions $\rho_m(\bx)$ could be parameterized and estimated using many different techniques, such as a linear specification in the features, splines, or so on.  We have chosen to estimate the functions $\rho_m(\bx)$ using gradient tree boosting.
 
 Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees that, when added together, create a function designed to minimize a given loss function. 
-In our application, the algorithm builds up the $\rho_m(\bX)$ that minimize the negative log-score of the stacked prediction $f(y|\bX)$. 
-
-Parameters of the algorithm: depth of trees (number of splits within each tree?), number of boosting iterations (is this $N$, below? like a total number of trees), "learning rate".
+In our application, the algorithm builds up the $\rho_m(\bx)$ that minimize the negative cross-validated log-score of the stacked prediction $f(y|\bX)$.  We have used the `xgb.train` function in the `xgboost` package ([[TODO: cite]]) for `R` to perform this estimation.
 
 Specifically, we define a single tree as
 \begin{equation}
-T(\bX; \Theta) = \sum_{j=1}^J \gamma_j I(\bX \in R_j)
+T(\bx; \btheta) = \sum_{j=1}^J \gamma_j I_{R_j}(\bx),
 \end{equation}
-where the $R_j$ are a disjoint set of regions that comprise a partition of the space of all predictor variables. 
-Additionally, the model takes $\Theta = \{R_j, \gamma_j \}_{1:J}$ as parameters with $J$ as a meta-parameter.
-Then the sum of the $N$ trees represents the function
+where the $R_j$ are a set of disjoint regions that comprise a partition of the space $\mathcal{X}$ of feature values $\bx$, and $I$ is the indicator function taking the value $1$ if $\bx \in R_j$ and $0$ otherwise. The parameters $\btheta = (\bpsi, \bgamma)$ for the tree are the split points $\bpsi$ partitioning $\mathcal{X}$ into the regions $R_j$ and the regression constants $\bgamma$ associated with each region.
+The function $\rho_m(\bx)$ is obtained as the sum of $B$ trees:
 \begin{equation}
-\rho_m(\bX) = \sum_{n=1}^N T(\bX; \Theta_n).
+\rho_m(\bx; \Theta_m) = \sum_{b=1}^B T(\bx; \btheta_{m, b}).
 \end{equation}
-[[TODO: check formulation above, including mention of whether estimation for each model m is done separately or jointly]]
 
-Additionally, we have introduced regularization into our estimation of the $\rho_m$ functions. 
-For now, weight regularization is done through three parameters; optimal values of those parameters are selected through cross-validation and a single best weighting scheme is selected.  
-The parameters are the depth of the regression trees used in the gradient tree boosting process, the number of boosting iterations, and the learning rate.
+In each iteration $b$ of the boosting process, we estimate $M$ new regression trees, one for each component model.  These trees are estimated so as to minimize a local approximation to the loss function around the weight functions that were obtained after the previous boosting iteration.
 
-We ensure that the the $\pi_m$ are non-negative and sum to 1 by parameterizing the $\pi_m$ in terms of the softmax transformation of real-valued functions $\rho_m$ in Equation \eqref{eqn:PiSoftmaxRho}.  
-Therefore for models $l, m \in \{1, ..., M\}$, $\rho_l(\bX) > \rho_m(\bX)$ indicates that model $l$ has more weight than model $m$ for predictions at the given value of $\bX$.
+Gradient tree boosting is appealing as a method for estimating the functions $\rho_m$ because it offers a great deal of flexibility in how the weights can vary as a function of the features $\bx$.  On the other hand, this flexibility can lead to overfitting the training data.  In order to limit the chances of overfitting, we have explored the use of four regularization parameters:
 
-## Baseline ensemble methods
+1. The number of boosting iterations $B$.  As $B$ increases, more extreme weights (close to 0 or 1) and more rapid changes in the weights as $\bx$ varies are possible.
 
-We propose a framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
-By _feature-dependent_ we mean that the weights associated with different component models are driven by observed features or covariates.
-Although we illustrate the method in the context of time-series predictions, the method could also be used for any model using stacking to generate predictive distributions.
-Features could include observed data from the system being predicted (such as recent wILI measurements or the time of year at which predictions are being made), observed data from outside the system (for example, recent weather observations), or features of the predictions themselves (e.g. summaries of the predictive distribution itself, such as a measure of spread in the distribution, or the time since a predicted peak).
-Based on exploration of training phase data and _a priori_ knowledge of the disease system, we chose three features of the system to illustrate the proposed "feature-weighting" methodology: 
-week of season, 
-model confidence (defined as the minimum number of predictive distribution bins required to cover 90% probability), and 
-wILI measurement at the time of prediction.
+2. An $L_1$ penalty on the number of tree leaves, $J$.  A large penalty encourages the regression trees to have fewer leaves, so that there is less flexibility for the model weights to vary as a function of $\bx$.
 
-All of the ensemble frameworks implemented here can be described using a single set of notation.
-Let $f_m(y|\bX)$ denote the predictive density from model $m$ for the value of the scalar random variable $Y$ conditional on observed variables $\bX$.  
-For example, $Y$ could represent the peak incidence for a given season.
-In the context of repeated predictions from a time-series, the covariate vector $\bX$ may include time-dependent covariates, e.g. the week at which the prediction is made. 
-However to introduce the method more generally, we can think of $\bX$ as being any set of covariates that may influence which model may more accurately predict the true outcome.
+3. The maximum depth of the regression trees; i.e., how many times the same region may be successively split.  Similarly to the $L_1$ penalty on the number of tree leaves, this controls how much flexibility there is for the model weights to vary in $\bx$.  Additionally, the maximum depth controls the number of interactions.  For instance, a maximum depth of 2 indicates that there can be at most two-way interactions between different features in setting model weights.
 
-The combined predictive density for a particular target in a given region can be written as 
-\begin{equation}
-f(y|\bX) = \sum_{m = 1}^M \pi_m f_m(y|\bX). \label{eqn:EnsembleModel} 
-\end{equation}
-In Equation \eqref{eqn:EnsembleModel} the $\pi_m$ are the model weights. These $\pi_m$ could either be taken as _a priori_ fixed values (e.g. $\pi_m = 1/M$, for all $m$) or it could take a more complicated functional form such as 
-\begin{equation}
-\pi_{m}(\bX) = \frac{\exp\{\rho_m(\bX)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bX)\}}  \label{eqn:PiSoftmaxRho} 
-\end{equation}
-where $\rho_m(\bX)$ is a function that depends on observed data and could be estimated using various techniques. 
-In either setting, the weights must be non-negative and sum to $1$ across $m$.  
+4. An $L_1$ penalty on the regression constants $\gamma_j$.  A large penalty encourages these constants to be small, so that the overall model weights change less in each boosting iteration.
 
-Using component model predictions from the training phase, we used four distinct methodologies to create or define weights to use for the stacking models. 
+We selected values for these regularization parameters using a grid search optimizing leave-one-season-out cross-validated model performance.
 
-1. Equal model weights, i.e. $\pi_m = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bX$.
+[[TODO: Discuss how varying some of these regularization parameters can give the simpler EW and dEM models??  Or ignore?  Or defer to supplement?]]
 
-2. Constant model weights, i.e. $\pi_m(\bX) = c_m$, a constant, where $\sum c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization (EM) algorithm.\citep{Lin2004} 
+<!-- To prevent the stacking model from overfitting the training data, we estimate the model parameters by optimizing a penalized loss function where the penalty encourages the splines to be smooth.  The underlying unpenalized loss function is a measure of the quality of the final predictive distribution $f_t(y_t)$, obtained by cross-validation.  Because model performance will be evaluated using log scores, we will use negative cross-validated log scores as the loss function during parameter estimation: -->
+<!-- The final predictions are obtained as a linear combination of the predictions from these component models.  The model weights depend on the week of the season in which the predictions are made.  We represent these weights as the softmax transformation of latent functions rho_ilt(season week) where i = 1, ..., 3 indexes the component model, l = 1, ..., 11 indexes the location (national or region 1 through 10), and t = 1, ..., 7 indexes the prediction target.  We estimate those latent functions rho_ilt via gradient tree boosting, optimizing leave-one-season-out crossvalidated log scores (using the definition of log scores specified for this competition). -->
 
-3. Feature-weighted, i.e. $\rho_m(\bX)$ are estimated using gradient boosting with features including week of the season and model confidence. [[TODO: do we include a season-week only model?]]
-
-4. Feature-weighted and smoothed, i.e. $\rho_m(\bX)$ as above but with regularization tuning parameters chosen for the gradient boosting that penalize large fluctuations in the estimated $\rho_m(\bX)$. In these models, we include the same features as in 3 above along with the most recent wILI value. Details on both feature-weighted frameworks are described below.
-
-[[TODO: create a table defining models and highlighting which covariates are used]]
-
-All in all, this leads to [[TODO: 6 or 7]] ensemble models fitted to the training phase data. 
-Each of the ensemble models, along with the three component models, are used to generate predictions in every season-week of each of the five testing seasons, assuming perfect reporting. 
-These predictions are then used to evaluate the prospective predictive performance of each of the ensemble methods. 
-In total, we evaluate [[TODO: total_ensemble_models + total_component_models]] models in 11 regions over 5 years and 3 targets of interest. 
-
-
-## Model testing
 
 <!-- Two feature-weighted (changing by season_week only, estimated separately by metric and region) -->
 <!--   3a. season_week -->
@@ -226,12 +250,7 @@ In total, we evaluate [[TODO: total_ensemble_models + total_component_models]] m
 <!-- 8 methods (1 equal-bin-weight + 3 component + 4 ensemble) / 3-7 metrics / 5 test seasons -->
 
 
-<!-- To prevent the stacking model from overfitting the training data, we estimate the model parameters by optimizing a penalized loss function where the penalty encourages the splines to be smooth.  The underlying unpenalized loss function is a measure of the quality of the final predictive distribution $f_t(y_t)$, obtained by cross-validation.  Because model performance will be evaluated using log scores, we will use negative cross-validated log scores as the loss function during parameter estimation: -->
-<!-- The final predictions are obtained as a linear combination of the predictions from these component models.  The model weights depend on the week of the season in which the predictions are made.  We represent these weights as the softmax transformation of latent functions rho_ilt(season week) where i = 1, ..., 3 indexes the component model, l = 1, ..., 11 indexes the location (national or region 1 through 10), and t = 1, ..., 7 indexes the prediction target.  We estimate those latent functions rho_ilt via gradient tree boosting, optimizing leave-one-season-out crossvalidated log scores (using the definition of log scores specified for this competition). -->
 
-To evaluate overall model performance, we computed the average log-score for each model across all regions and/or test seasons.
-Additionally for the peak wILI targets, we computed the average log-score for each model in the test seasons separately before and after the peak week.
-Similarly for the onset week target, we computed the average log-score for each model in the test seasons before and after the onset week.
 
 ## Software and code
 
@@ -242,6 +261,10 @@ To maximize reproducibility of our work, we have set seeds prior to running code
 Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
+
+To evaluate overall model performance, we computed the average log-score for each model across all regions and/or test seasons.
+Additionally for the peak wILI targets, we computed the average log-score for each model in the test seasons separately before and after the peak week.
+Similarly for the onset week target, we computed the average log-score for each model in the test seasons before and after the onset week.
 
 ```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
 flu_data$region[flu_data$region == "X"] <- "National"
@@ -278,7 +301,7 @@ ggplot() +
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
 
-```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
+```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsWeek}Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
 color_palette <- c("#E69F00", "#56B4E9", "#009E73")
 
 log_scores <- bind_rows(
