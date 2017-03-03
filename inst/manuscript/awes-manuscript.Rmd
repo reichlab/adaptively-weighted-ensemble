@@ -31,28 +31,30 @@ library(multcomp)
 
 # Introduction
 
-The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. In recent years, these "ensemble" forecasting approaches are frequently used among the top methods in prediction challenges. 
+The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. In recent years, these "ensemble" forecasting approaches are frequently among the top methods used in prediction challenges.
 
 Ensembles are a natural choice for noisy and complex interdependent systems that evolve over time. In this setting, no one model is likely to be able to predict the full dynamics of a complex system. Instead "specialist" or "component" models could be relied on to capture distinct features or signals from a system which, when combined, represent a complete range of possible outcomes. 
 
-Using component methods that generate predictive densities for outcomes of interest, we have developed a feature-weighted density ensemble method that estimates model weights as functions of observed data. Our approach fuses aspects of different ensemble methods: it uses model "stacking" \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \citep{Hastie2011}.
+Using component models that generate predictive densities for outcomes of interest, we have developed a feature-weighted ensemble method that estimates model weights as functions of observed data and aspects of the predictive distributions obtained from those component models. Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting [[TODO: cite Friedman]].
 
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind. Even in today's modern and scientific world, the spectre of a global pandemic appears to be a real possibility. The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics. With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies." [ADD CITATION: http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm]
 
-The observation that motivated the development of the method presented in this manuscript was seeing how certain prediction models for infectious disease consistently performed better than other models at certain times of year. We set out to determine whether past model performance could improve predictions using feature-weighted model stacking. We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy.
+Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year.  We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy. We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
-Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several features of the influenza season at each week during the season.
+[[TODO: Insert 1-paragraph ensemble methods literature review here.]]
+
+While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking.  In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  Then in a second stage, a stacking model is trained using those cross-validation results as an input to learn how to combine predictions from the component models.
+
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several attributes of the influenza season at each week during the season.  The remainder of this article is organized as follows.  In the next section, we describe our methods, including a description of our application and the model specifications.  Next, we present the results of our application.  We conclude with a discussion.
 
 # Methods
 
-While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking.  In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  Then in a second stage, a stacking model is trained using those cross-validation results as an input to learn how to combine predictions from the component models. [[TODO: move this paragraph to intro.?  I think it needs to come before the "Component models" subsection below to motivate why we're doing cross-validation.]]
-
-We begin this section with a discussion of the motivating prediction task for our method development, including a description of the influenza data we use in our application and the prediction targets, which measure aspects of infectious disease incidence over the course of the influenza season.
+We begin this section with a discussion of the motivating prediction task for our method development, including a description of the influenza data we use in our application and the prediction targets.
 Next, we discuss the three component models that our ensemble builds on.
 Finally, we turn to the ensemble methods, describing our ensemble model specification as well as two reference models that we use to indicate baseline ensemble performance in our application.
 
-## Data and prediction task
+## Data and prediction targets
 
 We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the U.S. Centers for Disease Control and Prevention (CDC) (Figure \ref{fig:raw-data}). 
 For each of the 10 Health and Human Services regions in the country in addition to the nation as a whole, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index. 
@@ -69,45 +71,45 @@ The peak incidence is the maximum observed wILI measured in a season. The peak w
 Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
 For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
 For peak week, the bins are represented by integer values for each possible season week.
-For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), [0.15, 0.25), ..., [12.95, 13.05), [13.05, $\infty$).  These bins were used in the 2016-2017 influenza prediction contest run by the CDC (cite something).
+For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 13.05), [13.05, $\infty$).  These bins were used in the 2016-2017 influenza prediction contest run by the CDC (cite something).
 
 We measure the accuracy of predictive distributions using the log score.
-The log score is a proper scoring rule\citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
+The log score is a proper scoring rule \citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
 Proper scoring rules are preferred for measuring the quality of predictive distributions because the expected score is optimized by the true probabilty distribution.
-We note that for peak week, the in some region-seasons the same peak incidence was achieved in multiple weeks (after rounding to one decimal place).
+We note that for peak week, in some region-seasons the same peak incidence was achieved in multiple weeks (after rounding to one decimal place).
 In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC (cite something).
 
 ## Component models
-We used three component models to generate probabilistic predictions of these three quantities of interest. The first model was a seasonal average model that utilized kernel density estimation to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation to create predicted trajectories of incidence. By aggregating across all trajectories, we constructed predictive distributions for each target. The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation and model selection approach to fit a model to the data. All models were fit independently on data within a particular region.
+We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence.  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
 
 ### Kernel Density Estimation (KDE)
-The simplest of the component models uses kernel density estimation (KDE) to estimate a predictive distribution of future values based on observed data from previous seasons within the region of interest. 
-Let the vector of observations for one of the targets be $\by_{1:K}$, so for example, this might represent the vector of the peak wILI values from the $K$ training seasons.
-We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016}. 
-To create an empirical predictive distribution of size $N$ from a KDE fit based on a data vector of length $K$ ($\by_{1:K}$), we first drew $N$ samples (with replacement) from $\by_{1:K}$, yielding a new vector $\tilde \by_{1:N}$. 
-We then drew a single psuedo-random deviates from each of $N$ Gaussian distributions centered at $\tilde \by_{1:N}$ with the bandwidth estimated by the KDE algorithm. 
+The simplest of the component models uses kernel density estimation [[TODO: cite Silverman]] to estimate a distribution for each target based on observed values of that target in previous seasons within the region of interest.
+We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016} to estimate the bandwidth parameter.
+For the peak incidence target, we fit to log-transformed observations of historical peak incidence.
+For the onset week prediction target, we estimated the probability of no onset as the proportion of region-seasons in all regions in the training phase where no week in the season met the criteria for being a season onset.
+
+To create an empirical predictive distribution of size $N$ from a KDE fit based on a data vector $\by_{1:K}$ (for example, this might be the vector of peak week values from the $K$ training seasons), we first drew $N$ samples with replacement from $\by_{1:K}$, yielding a new vector $\tilde \by_{1:N}$.
+We then drew a single psuedo-random deviates from each of $N$ truncated Gaussian distributions centered at $\tilde \by_{1:N}$ with the bandwidth estimated by the KDE algorithm.
+The Gaussians we sampled from were truncated at the lower and upper bounds of possible values for the given prediction target.
+Finally, we discretized the sampled values to the target-specific bins.
 These sampled points then make up the empirical predictive distribution from a KDE model.
-For the onset week outcome, we added the probability of no onset occuring within a season as [[TODO: XXXX]] and then standardized this along with the sampled probabilities so they summed to 1.
-<!--for week-based outcomes: we just removed samples that were <=0 and >52. Arbitrary but likely not a big deal. -->
+We set the sample size to $N = 10^5$.  In theory, this model assigns non-zero probability to every possible outcome; however, in a few cases the empirical predictive distribution resulting from this Monte Carlo sampling approach assigned probability zero to some of the bins.
 
 It is important to note that the predictions from this model do not change as new data are observed over the course of the season.
-This is a strictly seasonal model, only ever predicting a distribution that relates to the average observations in past seasons.
-
 
 ### Kernel Conditional Density Estimation (KCDE)
-We use a method called kernel conditional density estimation (KCDE) to estimate predictive distributions for each target. 
-Using a kernel-based approach to nearest-neighbors regression, KCDE fits separate predictive densities for each future week in the season. 
-Our implementation for this paper conditioned on recent past incidence and week of season, only using information from the time series itself.
-In order to predict seasonal quantities (onset, peak timing, and peak incidence), we use a copula to model dependence among those individual predicitive densities for each week, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.
-For each predicted trajectory, the peak week, peak height, and onset week are computed and these are aggregated to create predictive distributions for each target respectively (see \citep{Ray2016} for details).
+We used kernel conditional density estimation and copulas to estimate a joint predictive distribution for flu incidence in each future week of the season, and then calculated predictive distributions for each target from that joint distribution.
+In our implementation, we first used KCDE to obtain separate predictive densities for flu incidence in each future week of the season.  Each of these predictive densities gives a conditional distribution for incidence at one future time point given recent observations of incidence and the current week of the season.  KCDE can be viewed as a distribution-based analogue of nearest-neighbors regression.  We then used a copula to model dependence among those individual predicitive densities, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.
 
-[[TODO: (Optional) add 2-3 sentences with a few more details on methodology, etc... cross-validation, bandwidth selection, periodic kernel, data on log-scale?, etc...]]
+To predict seasonal quantities (onset, peak timing, and peak incidence), we simulate $N = 10^5$ trajectories of disease incidence from this joint predictive distribution.
+For each simulated incidence trajectory, we compute the onset week, peak week, and peak incidence.
+We then aggregate these values to create predictive distributions for each target.
+This procedure for obtaining predictive distributions for the targets of interest can be formally justified as an appropriate Monte Carlo integral of the joint predictive distribution for disease incidence in future weeks (see \citep{Ray2016} for details).
 
 ### Seasonal auto-regressive integrated moving average (SARIMA)
-We fit seasonal ARIMA models \citep{Box2015} to wILI observations transformed to be on the natural log scale. We used the stepwise procedure from the `auto.arima` function in the `forecast` package for R to select the order of first- and seasonal-differencing as well as the specification of the order of auto-regressive and moving average terms for the SARIMA model.\citep{Hyndman2008} Additionally, data were Box-Cox transformed prior to modeling. 
+We fit seasonal ARIMA models \citep{Box2015} to wILI observations transformed to be on the natural log scale.  We manually performed first-order seasonal differencing and used the stepwise procedure from the `auto.arima` function in the `forecast` package \citep{Hyndman2008} for R to select the specification of the auto-regressive and moving average terms.
 
-[[TODO: Specifications for forecast algorithm - what method used?]] 
-Similar to KCDE, forecasts were obtained as trajectories of wILI values over the rest of the season and predictive distributions of the targets were computed as described above.
+Similar to KCDE, forecasts were obtained by sampling $N = 10^5$ trajectories of wILI values over the rest of the season (using the `simulate.Arima` function from the `forecast` package), and predictive distributions of the targets were computed from these sampled trajectories as described above.
 
 ### Component model training
 
@@ -115,8 +117,11 @@ We used data from 14 seasons (1997/1998 through 2010/2011) to train the models.
 Data from five seasons (2011/2012 through 2015/2016) were held out when fitting the models and used exclusively in the testing phase. 
 To avoid overfitting our models, we made predictions for the test phase only once \citep{Hastie2011}.
 
-For each region, we estimated the parameters of each component model 14 times, excluding one training season at a time.
-Then for each season-week within the left-out season, we generated a set of three predictive distributions, one for each of the prediction targets.  We were not able to generate predictions from the SARIMA and KCDE models for some seasons in the training phase because those models used lagged observations from previous seasons that were missing in our data set.
+Estimation of the ensemble models (discussed in the next subsection) requires cross-validated measures of performance of each of the component models in order to accurately gauge their relative performance.
+For each region, we estimated the parameters of each component model 15 times: 14 fits were obtained excluding one training season at a time, and another fit used all of the training data.
+For each fit obtained leaving one season out, we generated a set of three predictive distributions, one for each of the prediction targets in the held-out season.
+We were not able to generate predictions from the SARIMA and KCDE models for some seasons in the training phase because those models used lagged observations from previous seasons that were missing in our data set.
+The component model fits based on all of the training data were used to generate predictions for the test phase.
 
 
 ## Ensemble methods
