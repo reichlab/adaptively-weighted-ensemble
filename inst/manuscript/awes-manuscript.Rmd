@@ -177,11 +177,11 @@ All in all, this leads to 6 ensemble models, summarized in Table \ref{tbl:Ensemb
   &   & Prediction & Week of & SARIMA & KCDE & Current \\ 
 Model & Region & Target & Season & Uncertainty & Uncertainty & wILI \\ 
   \hline
-EW &   &   &   &   &   &   \\
-dEM & X & X &   &   &   &   \\
-FW & X & X & X & X &   &   \\
-FW-reg-w & X & X & X &   &   &   \\
-FW-reg-wu & X & X & X & X & X &   \\
+EW         &   &   &   &   &   &   \\
+dEM        & X & X &   &   &   &   \\
+FW         & X & X & X & X & X &   \\
+FW-reg-w   & X & X & X &   &   &   \\
+FW-reg-wu  & X & X & X & X & X &   \\
 FW-reg-wui & X & X & X & X & X & X \\
 \bottomrule
 \end{tabular}
