@@ -42,7 +42,7 @@ Instead "specialist" or "component" models can be relied on to capture distinct 
 
 Using component models that generate predictive densities for outcomes of interest, we have developed an ensemble method that determines optimal model combinations based on observed data and aspects of the predictive distributions obtained from those component models. 
 We refer to models built using this approach as "feature-weighted" ensembles.
-Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \cite0{friedman2001greedy}.
+Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \citep{friedman2001greedy}.
 
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind.
