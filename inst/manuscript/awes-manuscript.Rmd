@@ -32,28 +32,45 @@ library(multcomp)
 
 # Introduction
 
-The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. In recent years, these "ensemble" forecasting approaches are frequently among the top methods used in prediction challenges.
+The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. 
+These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. 
+In recent years, these "ensemble" forecasting approaches are frequently among the top methods used in prediction challenges across a wide range of applications.
 
-Ensembles are a natural choice for noisy and complex interdependent systems that evolve over time. In this setting, no one model is likely to be able to predict the full dynamics of a complex system. Instead "specialist" or "component" models could be relied on to capture distinct features or signals from a system which, when combined, represent a complete range of possible outcomes. 
+Ensembles are a natural choice for noisy, complex, and interdependent systems that evolve over time. 
+In these settings, no one model is likely to be able to capture and predict the full set of complex relationships that drive future observations from a particular system of interest. 
+Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes. 
 
-Using component models that generate predictive densities for outcomes of interest, we have developed a feature-weighted ensemble method that estimates model weights as functions of observed data and aspects of the predictive distributions obtained from those component models. Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting [[TODO: cite Friedman]].
+Using component models that generate predictive densities for outcomes of interest, we have developed an ensemble method that determines optimal model combinations based on observed data and aspects of the predictive distributions obtained from those component models. 
+We refer to models built using this approach as "feature-weighted" ensembles.
+Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \cite0{friedman2001greedy}.
 
 To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
-For millenia, infectious diseases have been one of the central existential threats to humankind. Even in today's modern and scientific world, the spectre of a global pandemic appears to be a real possibility. The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics. With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies." [ADD CITATION: http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm]
+For millenia, infectious diseases have been one of the central existential threats to humankind.
+The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics.
+With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. 
+Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies."\citep{cdc-decisions-2016}
 
-Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year (Figure \ref{fig:ComponentModelLogScoresVsWeek}).  We observed that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model. However, in the middle of the season, the time-series models showed improved accuracy. We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
+Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year.  
+We observed in earlier work that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model\citep{ray2016}. 
+However, in the middle of the season, the time-series models showed improved accuracy. 
+We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
 [[TODO: Insert 1-paragraph ensemble methods literature review here.]]
 
-While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking.  In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  Then in a second stage, a stacking model is trained using those cross-validation results as an input to learn how to combine predictions from the component models.
+While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking.  
+In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  
+Then, in a second stage, a stacking model is trained using the cross-validated performance measures to learn how to optimally combine predictions from the component models.
 
-Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predicting several attributes of the influenza season at each week during the season.  The remainder of this article is organized as follows.  In the next section, we describe our methods, including a description of our application and the model specifications.  Next, we present the results of our application.  We conclude with a discussion.
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predict several attributes of the influenza season at each week during the season.
+Additionally, we compared the feature-weighted ensemble model to simpler ensemble approaches, such as simple averages of component models.
+By illustrating the utility of this new approach to ensemble forecasting in a setting with complex population dynamics, this work highlights the importance of continued innovation in ensemble methodology.
 
 # Methods
 
-We begin this section with a discussion of the motivating prediction task for our method development, including a description of the influenza data we use in our application and the prediction targets.
-Next, we discuss the three component models that our ensemble builds on.
-Finally, we turn to the ensemble methods, describing our ensemble model specification as well as two reference models that we use to indicate baseline ensemble performance.
+This paper presents a novel ensemble framework applied to forecasting specific features of influenza seasons in the U.S. 
+First, we present a description of the influenza data we use in our application and the prediction targets.
+Next, we discuss the three component models utilized by our ensemble framework.
+Finally, we turn to the ensemble framework itself, describing our model's specification as well as that of two "baseline" ensemble models.
 
 ## Data and prediction targets
 
