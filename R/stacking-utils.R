@@ -71,7 +71,7 @@ weighted_combine_predictions <- function(
   }
   
   cols_to_summarize <- colnames(component_preds)[
-    !(colnames(component_preds) %in% c("model", prediction_targets_used))
+    !(colnames(component_preds) %in% c("model", prediction_targets_used, "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"))
   ]
   cols_to_sum <- cols_to_summarize[!(cols_to_summarize %in% unique_case_id_vars)]
   
@@ -178,6 +178,8 @@ assemble_predictions <- function(
 #' 
 #' @param regions string with region: either "National" or in the format
 #'   "Regionk" for k in {1, ..., 10}
+#' @param seasons character vector specifying seasons for which to get predictions,
+#'   "2011/2012" or "2011-2012" or "*" for all seasons
 #' @param prediction_target string with either "onset", "peak_week",
 #'   "peak_inc", "ph1_inc", ..., "ph4_inc"
 #' @param component_model_names character vector with names of component models
@@ -199,6 +201,7 @@ assemble_predictions <- function(
 #' @export
 assemble_stacking_inputs <- function(
   regions,
+  seasons = "*",
   prediction_target,
   component_model_names,
   explanatory_variables,
@@ -209,6 +212,7 @@ assemble_stacking_inputs <- function(
   target_pred_res <- assemble_predictions(
     preds_path = preds_path,
     regions = regions,
+    seasons = seasons,
     models = component_model_names,
     prediction_targets = prediction_target
   )
