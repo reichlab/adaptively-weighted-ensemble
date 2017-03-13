@@ -321,7 +321,7 @@ compute_competition_log_score <- function(bin_log_probs,
 #' Get the onset baseline for a combination of region and season
 #' 
 #' @param region a string, either "X", "Region k", or "Regionk" where
-#'   k \in {1, ..., 10}
+#'   k in {1, ..., 10}
 #' @param season a string, in the format "2015/2016"
 #' 
 #' @return baseline value for determining season onset
@@ -433,7 +433,7 @@ make_predictions_dataframe <- function(data,
 #'   the season in which to make predictions, using all data up to and including
 #'   that week to make predictions for each following week in the season
 #' @param region string specifying the region to use, in the format "X" or
-#'   "Region k" where k \in {1, ..., 10}
+#'   "Region k" where k in {1, ..., 10}
 #' @param prediction_target_var string specifying the name of the variable in
 #'   data for which we want to make predictions
 #' @param incidence_bins a data frame with variables lower and upper defining
@@ -840,7 +840,7 @@ get_initial_rng_substream <- function(
 #' @param method character string specifying prediction method
 #'   currently one of "sarima", "kcde", or "kde"
 #' @param region character string specifying region; format "National" or
-#'   "Region k" for k \in {1, ..., 10}
+#'   "Region k" for k in {1, ..., 10}
 #' @param season character string specifying season predicted, in format
 #'   "1998/1999"
 #' @param set_rng boolean should rng be set to use rstream with the returned

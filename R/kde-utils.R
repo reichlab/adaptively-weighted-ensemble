@@ -498,7 +498,7 @@ predict_region_kde <- function(data, region, path, n_sim) {
 #'   the season in which to make predictions, using all data up to and including
 #'   that week to make predictions for each following week in the season
 #' @param region string specifying the region to use, in the format "X" or
-#'   "Region k" where k \in {1, ..., 10}
+#'   "Region k" where k in {1, ..., 10}
 #' @param prediction_target_var string specifying the name of the variable in
 #'   data for which we want to make predictions
 #' @param incidence_bins a data frame with variables lower and upper defining
