@@ -26,6 +26,7 @@ library(awes)
 library(nlme)
 library(multcomp)
 library(mosaic)
+library(gridExtra)
 ```
 
 # Abstract
@@ -318,6 +319,74 @@ ggplot() +
 ```
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
+
+```{r stacking-concept, echo=FALSE, fig.cap="\\label{fig:stacking-concept}Concept of showing the merging of multiple predictive distributions"}
+
+kde_full <- readRDS("inst/estimation/loso-predictions/kde-National-2005-2006-loso-predictions.rds")
+kcde_full <- readRDS("inst/estimation/loso-predictions/kcde-National-2005-2006-loso-predictions.rds")
+sarima_full <- readRDS("inst/estimation/loso-predictions/sarima-National-2005-2006-loso-predictions.rds")
+
+## get indices
+tmp_week <- 20
+idx_kde <- which(kde_full$analysis_time_season_week==tmp_week)
+idx_kcde <- which(kcde_full$analysis_time_season_week==tmp_week)
+idx_sarima <- which(sarima_full$analysis_time_season_week==tmp_week)
+
+kde_dens <- kde_full %>% 
+    filter(analysis_time_season_week == tmp_week) %>%
+    dplyr::select(starts_with("peak_inc_bin")) %>%
+    as.numeric(.)
+
+kcde_dens <- kcde_full %>% 
+    filter(analysis_time_season_week == tmp_week) %>%
+    dplyr::select(starts_with("peak_inc_bin")) %>%
+    as.numeric(.)
+
+sarima_dens <- sarima_full %>% 
+    filter(analysis_time_season_week == tmp_week) %>%
+    dplyr::select(starts_with("peak_inc_bin")) %>%
+    as.numeric(.)
+
+weights <- data_frame(
+    mdl = c("KDE", "KCDE", "SARIMA"),
+    weight = c(.1, .5, .4))
+
+pred_dens <- data_frame(
+    inc_bin = seq(0,13, .1),
+    KDE = exp(kde_dens), 
+    KCDE = exp(kcde_dens), 
+    SARIMA = exp(sarima_dens)) %>%
+    gather(
+        key = mdl,
+        value = probability,
+        -inc_bin) %>%
+    ## aggregate bins
+    mutate(inc_bin = ceiling(inc_bin)) %>%
+    group_by(mdl, inc_bin) %>%
+    summarize(probability = sum(probability)) %>%
+    left_join(weights)
+
+p_base <- ggplot(pred_dens) + 
+    geom_col(aes(x=inc_bin, fill=mdl)) + 
+    scale_fill_brewer(type="qual") +
+    xlab("peak incidence value (in bins)") +
+    coord_cartesian(xlim=c(0, 11)) +
+    theme_minimal() + 
+    theme(legend.position = "none")
+
+p1 <- p_base + aes(y=probability) + 
+    facet_grid(mdl~.) + ggtitle("A: Original predictions")
+
+p2 <- p_base + aes(y=probability * weight) + 
+    facet_grid(mdl~.) + ggtitle("B: Weighted predictions")
+
+p3 <- p_base + aes(y=probability * weight) +
+    ggtitle("C: Stacked prediction")
+
+grid.arrange(p1, p2, p3, ncol=3)
+
+```
+
 
 ```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsWeek}Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
 awes_path <- find.package("awes")
