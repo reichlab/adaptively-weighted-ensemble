@@ -27,6 +27,7 @@ library(nlme)
 library(multcomp)
 library(mosaic)
 library(gridExtra)
+library(cowplot)
 ```
 
 # Abstract
@@ -320,7 +321,7 @@ ggplot() +
 
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
 
-```{r stacking-concept, echo=FALSE, fig.cap="\\label{fig:stacking-concept}Concept of showing the merging of multiple predictive distributions"}
+```{r stacking-concept, echo=FALSE, fig.cap="\\label{fig:stacking-concept}Conceptual diagram of how the stacking models operate on probabilistic predictive distributions. Panel A shows the predictive distributions from three component models. Panel B shows scaled versions of the distributions from A, after being multiplied by model weights. In Panel C, the scaled distributions are literally stacked to create the final ensemble predictive distribution."}
 
 kde_full <- readRDS("inst/estimation/loso-predictions/kde-National-2005-2006-loso-predictions.rds")
 kcde_full <- readRDS("inst/estimation/loso-predictions/kcde-National-2005-2006-loso-predictions.rds")
@@ -348,8 +349,10 @@ sarima_dens <- sarima_full %>%
     as.numeric(.)
 
 weights <- data_frame(
-    mdl = c("KDE", "KCDE", "SARIMA"),
-    weight = c(.1, .5, .4))
+    mdl = factor(c("KDE", "KCDE", "SARIMA"), levels=c("KDE", "KCDE", "SARIMA")),
+    weight = c(.1, .5, .4),
+    x = 9,
+    y=.4)
 
 pred_dens <- data_frame(
     inc_bin = seq(0,13, .1),
@@ -364,26 +367,49 @@ pred_dens <- data_frame(
     mutate(inc_bin = ceiling(inc_bin)) %>%
     group_by(mdl, inc_bin) %>%
     summarize(probability = sum(probability)) %>%
-    left_join(weights)
+    left_join(weights) %>% ungroup() %>%
+    mutate(mdl = factor(mdl, levels=c("KDE", "KCDE", "SARIMA")))
 
+## make the base plot
 p_base <- ggplot(pred_dens) + 
     geom_col(aes(x=inc_bin, fill=mdl)) + 
     scale_fill_brewer(type="qual") +
     xlab("peak incidence value (in bins)") +
-    coord_cartesian(xlim=c(0, 11)) +
+    coord_cartesian(xlim=c(0, 11), ylim=c(0, 0.5)) +
     theme_minimal() + 
-    theme(legend.position = "none")
+    theme(legend.position = "none", panel.grid.minor=element_blank())
 
-p1 <- p_base + aes(y=probability) + 
-    facet_grid(mdl~.) + ggtitle("A: Original predictions")
+## left hand tri-part panel
+p1 <- p_base + aes(y=probability) + theme(strip.text.y = element_blank())+
+    facet_grid(mdl~.) + ggtitle("A: Original predictions") +
+    geom_text(data=weights, aes(x=8, y=y, label=mdl), hjust=0, size=5)
 
+## center tri-part panel
 p2 <- p_base + aes(y=probability * weight) + 
-    facet_grid(mdl~.) + ggtitle("B: Weighted predictions")
+    facet_grid(mdl~.) + ggtitle("B: Weighted predictions") +
+    theme(strip.text.y = element_blank(), axis.title.y = element_blank()) +
+    geom_text(data=weights, parse=TRUE,
+        aes(x=x, y=y, label=paste(expression(pi[m]), "==", weight)))
 
-p3 <- p_base + aes(y=probability * weight) +
-    ggtitle("C: Stacked prediction")
+## make complicated right hand panel
 
-grid.arrange(p1, p2, p3, ncol=3)
+## top and bottom RHS
+blankPlot <- ggplot() + geom_blank(aes(x=c(0,1),y=c(0,1))) +
+    cowplot::theme_nothing()
+
+title_plot <- blankPlot + 
+    geom_text(aes(x=0, y=.1,label="C:Stacked prediction"), hjust=0, size=4.5)
+
+axis_plot <- blankPlot + 
+    geom_text(aes(x=.5, y=1,label="peak incidence value (in bins)"), size=4)
+
+## middle left
+p3 <- p_base + aes(y=probability * weight) + 
+    theme(axis.title.y = element_blank(), axis.title.x=element_blank()) 
+
+p4 <- grid.arrange(title_plot, p3, axis_plot)
+
+grid.arrange(p1, p2, p4, ncol=3)
 
 ```
 
