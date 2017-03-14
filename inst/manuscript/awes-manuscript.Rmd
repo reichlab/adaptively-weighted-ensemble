@@ -12,7 +12,17 @@ header-includes:
    - \usepackage{setspace}\onehalfspacing
    - \usepackage{lineno}\linenumbers
    - \usepackage{booktabs}
+   - \usepackage{xcolor,colortbl}
    - \renewcommand{\familydefault}{cmss}
+   - \definecolor{gray1}{rgb}{0.01,0.01,0.01}
+   - \definecolor{gray2}{rgb}{0.2,0.2,0.2}
+   - \definecolor{gray3}{rgb}{0.3,0.3,0.3}
+   - \definecolor{gray4}{rgb}{0.4,0.4,0.4}
+   - \definecolor{gray5}{rgb}{0.5,0.5,0.5}
+   - \definecolor{gray6}{rgb}{0.6,0.6,0.6}
+   - \definecolor{gray7}{rgb}{0.7,0.7,0.7}
+   - \definecolor{gray8}{rgb}{0.8,0.8,0.8}
+   - \definecolor{gray9}{rgb}{0.9,0.9,0.9}
 bibliography: feature-weighted-ensembles.bib
 ---
 
@@ -898,15 +908,9 @@ ggplot(summary_figure_df) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-\begin{table}[hp]
-\centering
-\begin{tabular}{rrccccccccc}
-\toprule
-           &   & \multicolumn{9}{c}{Model} \\
-\cline{3-11}
-Prediction  &        &   &   &   &   &   &   &   &   &  \\ 
-Target      & Season & 
-```{r test_phase_log_scores_by_season_table, echo=FALSE, cache=TRUE, results="asis"}
+
+
+```{r test_phase_log_scores_by_season_heatmap, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred."}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
@@ -949,9 +953,6 @@ region_season_obs_quantities <- region_season_obs_quantities %>%
     observed_onset_week = as.numeric(observed_onset_week),
     observed_peak_week = observed_peak_week
   )
-```
-
-```{r test_phase_log_scores_by_season_table2, echo=FALSE, cache=TRUE, results="asis"}
 
 all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
 all_targets <- c("onset", "peak_week", "peak_inc")
@@ -968,25 +969,19 @@ preds <- assemble_predictions(
     prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
     score = exp(log_score)
   )
-```
 
-```{r test_phase_log_scores_by_season_table1b, echo=FALSE, cache=TRUE, results="asis"}
 preds$log_score[is.infinite(preds$log_score)] <- -10
 preds <- preds %>%
   left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
   mutate(
     before_onset = (analysis_time_season_week < observed_onset_week),
     before_peak = (analysis_time_season_week < observed_peak_week))
-```
-```{r test_phase_log_scores_by_season_table2c, echo=FALSE, cache=TRUE, results="asis"}
 
 preds$before_target_date <- ifelse(
   preds$prediction_target == "onset",
   c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
   c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
 )
-```
-```{r test_phase_log_scores_by_season_table2d, echo=FALSE, cache=TRUE, results="asis"}
 
 preds$model[preds$model == "kde"] <- "KDE"
 preds$model[preds$model == "kcde"] <- "KCDE"
@@ -1013,10 +1008,6 @@ preds <- preds %>%
     region = factor(region),
     analysis_time_season = factor(analysis_time_season)
   )
-```
-
-```{r test_phase_log_scores_by_season_table3, echo=FALSE, cache=TRUE, results="asis"}
-n_decimals <- 3L
 
 res <- mean(log_score ~ model + prediction_target + analysis_time_season,
   data = preds[preds$before_target_date == "before\ntarget date", ])
@@ -1027,40 +1018,26 @@ res <- cbind(temp, res) %>%
   as.data.frame(stringsAsFactors = FALSE) %>%
   `colnames<-`(c("model", "prediction_target", "season", "mean_log_score")) %>%
   `rownames<-`(NULL) %>%
-  mutate(mean_log_score = as.numeric(mean_log_score))
+  group_by_(.dots = c("prediction_target", "season")) %>%
+  mutate(mean_log_score = as.numeric(mean_log_score),
+    rank = factor(rank(-1 * as.numeric(mean_log_score))))
+res$model <- factor(res$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
 
-res <- spread(res, model, mean_log_score)
-res <- res[, c("prediction_target", "season", levels(preds$model))]
-
-## print model names for heading row
-for(model_name in colnames(res)[seq(from = 3, to = ncol(res))]) {
-  cat(model_name)
-  if(model_name != tail(colnames(res), 1)) {
-    cat(" & ")
-  }
-}
-cat("\\\\ \n \\hline \n")
-
-## print log scores
-for(row_ind in seq_len(nrow(res))) {
-  for(col_ind in seq_len(ncol(res))) {
-    if(col_ind > 2) {
-      cat(format(round(res[row_ind, col_ind], n_decimals), nsmall = n_decimals))
-    } else {
-      cat(res[row_ind, col_ind])
-    }
-    if(col_ind < ncol(res)) {
-      cat(" & ")
-    }
-  }
-  cat(" \\\\\n")
-}
+ggplot() +
+  geom_tile(aes(x = model, y = season, fill = rank), data = res) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  scale_fill_manual("Model Rank",
+    breaks = as.character(1:9),
+    labels = as.character(1:9),
+    values = rev(c("#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"))) +
+  xlab("Model") +
+  ylab("Season") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
-\bottomrule
-\end{tabular}
-\caption{\label{tbl:EnsembleModelSummaryTable}Summary of ensemble methods and what the model weights depend on.}
-\end{table}
-
 
 #### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with MAE (y) \label{fig:test-phase-MAE}
 
