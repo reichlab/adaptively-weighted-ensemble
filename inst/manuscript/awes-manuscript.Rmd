@@ -332,10 +332,14 @@ ggplot() +
 #### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
 
 ```{r stacking-concept, echo=FALSE, fig.cap="\\label{fig:stacking-concept}Conceptual diagram of how the stacking models operate on probabilistic predictive distributions. Panel A shows the predictive distributions from three component models. Panel B shows scaled versions of the distributions from A, after being multiplied by model weights. In Panel C, the scaled distributions are literally stacked to create the final ensemble predictive distribution."}
+awes_path <- find.package("awes")
 
-kde_full <- readRDS("inst/estimation/loso-predictions/kde-National-2005-2006-loso-predictions.rds")
-kcde_full <- readRDS("inst/estimation/loso-predictions/kcde-National-2005-2006-loso-predictions.rds")
-sarima_full <- readRDS("inst/estimation/loso-predictions/sarima-National-2005-2006-loso-predictions.rds")
+kde_full <- readRDS(file.path(awes_path,
+  "estimation/loso-predictions/kde-National-2005-2006-loso-predictions.rds"))
+kcde_full <- readRDS(file.path(awes_path,
+  "estimation/loso-predictions/kcde-National-2005-2006-loso-predictions.rds"))
+sarima_full <- readRDS(file.path(awes_path,
+  "estimation/loso-predictions/sarima-National-2005-2006-loso-predictions.rds"))
 
 ## get indices
 tmp_week <- 20
@@ -382,7 +386,8 @@ pred_dens <- data_frame(
 
 ## make the base plot
 p_base <- ggplot(pred_dens) + 
-    geom_col(aes(x=inc_bin, fill=mdl)) + 
+#    geom_col(aes(x=inc_bin, fill=mdl)) + 
+    geom_bar(aes(x=inc_bin, fill=mdl), stat="identity") +
     scale_fill_brewer(type="qual") +
     xlab("peak incidence value (in bins)") +
     coord_cartesian(xlim=c(0, 11), ylim=c(0, 0.5)) +
