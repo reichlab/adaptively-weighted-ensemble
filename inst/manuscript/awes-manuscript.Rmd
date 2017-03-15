@@ -364,7 +364,7 @@ sarima_dens <- sarima_full %>%
 
 weights <- data_frame(
     mdl = factor(c("KDE", "KCDE", "SARIMA"), levels=c("KDE", "KCDE", "SARIMA")),
-    weight = c(.1, .5, .4),
+    weight = c(.2, .5, .3),
     x = 9,
     y=.4)
 
@@ -388,7 +388,7 @@ pred_dens <- data_frame(
 p_base <- ggplot(pred_dens) + 
 #    geom_col(aes(x=inc_bin, fill=mdl)) + 
     geom_bar(aes(x=inc_bin, fill=mdl), stat="identity") +
-    scale_fill_brewer(type="qual") +
+    scale_fill_brewer(palette="Set2") +
     xlab("peak incidence value (in bins)") +
     coord_cartesian(xlim=c(0, 11), ylim=c(0, 0.5)) +
     theme_minimal() + 
@@ -413,7 +413,7 @@ blankPlot <- ggplot() + geom_blank(aes(x=c(0,1),y=c(0,1))) +
     cowplot::theme_nothing()
 
 title_plot <- blankPlot + 
-    geom_text(aes(x=0, y=.1,label="C:Stacked prediction"), hjust=0, size=4.5)
+    geom_text(aes(x=0, y=.1,label="C: Stacked prediction"), hjust=0, size=4.5)
 
 axis_plot <- blankPlot + 
     geom_text(aes(x=.5, y=1,label="peak incidence value (in bins)"), size=4)
