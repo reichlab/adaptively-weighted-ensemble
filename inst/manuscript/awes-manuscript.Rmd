@@ -1,5 +1,5 @@
 ---
-title: "Prediction of Infectious Disease Epidemics via Feature-Weighted Density Ensembles"
+title: "Prediction of Infectious Disease Epidemics via Weighted Density Ensembles"
 author: "Evan L Ray, Krzysztof Sakrejda, Nicholas G Reich"
 output: 
     pdf_document:
@@ -46,22 +46,29 @@ library(cowplot)
 # Introduction
 
 The practice of combining predictions from different models has been used for decades by climatologists and geophysical scientists. 
-These methods have subsequently been adapted and extended by statisticians and computer scientists in a wide array of applications. 
+These methods have subsequently been adapted and extended by statisticians and computer scientists in diverse areas of scientific inquiry. 
 In recent years, these "ensemble" forecasting approaches are frequently among the top methods used in prediction challenges across a wide range of applications.
 
 Ensembles are a natural choice for noisy, complex, and interdependent systems that evolve over time. 
 In these settings, no one model is likely to be able to capture and predict the full set of complex relationships that drive future observations from a particular system of interest. 
 Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes. 
 
-Using component models that generate predictive densities for outcomes of interest, we have developed an ensemble method that determines optimal model combinations based on observed data and aspects of the predictive distributions obtained from those component models. 
-We refer to models built using this approach as "feature-weighted" ensembles.
-Our approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \citep{friedman2001greedy}.
+Using component models that generate predictive densities for outcomes of interest, we have implemented a series of ensembles using different methods for choosing the weights for each model.  
+Specifically, we compare three different approaches. 
+The first approach simply takes an equally weighted average of all models.
+The second approach estimates constant but not necessarily equal weights for each model.
+The third approach is a novel method for determining optimal weights based on features of the system at the time predictions are made.
+The overarching goal of this study is to create a systematic comparison between increasingly complex ensemble methods to begin to study the benefits of including increasing complexity in ensemble weighting schemes.
 
-To illustrate this method, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
+This paper presents a novel ensemble method that determines optimal model combinations based on observed data and aspects of the predictive distributions obtained from those component models. 
+We refer to models built using this approach as "feature-weighted" ensembles.
+This approach fuses aspects of different ensemble methods: it uses model stacking \citep{Wolpert1992}, combines predictive densities as in Bayesian Model Averaging \citep{Madigan1998}, and estimates model weights based on features of the system \citep{Sill2009} using gradient tree boosting \citep{friedman2001greedy}.
+
+To illustrate these ensemble methods, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
 For millenia, infectious diseases have been one of the central existential threats to humankind.
 The international significance of emerging epidemic threats in recent decades, including HIV/AIDS since the 1980s, SARS in 2003, H1N1 in 2009, and Ebola and MERS in 2014-2015, has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics.
 With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could impact future outbreaks. 
-Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying: "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies."\citep{cdc-decisions-2016}
+Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies."\citep{cdc-decisions-2016}
 
 Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year.  
 We observed in earlier work that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model\citep{ray2016}. 
@@ -74,16 +81,15 @@ While there are many different methods for combining models, all ensemble models
 In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained.  
 Then, in a second stage, a stacking model is trained using the cross-validated performance measures to learn how to optimally combine predictions from the component models.
 
-Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our feature-weighted ensemble model to predict several attributes of the influenza season at each week during the season.
-Additionally, we compared the feature-weighted ensemble model to simpler ensemble approaches, such as simple averages of component models.
-By illustrating the utility of this new approach to ensemble forecasting in a setting with complex population dynamics, this work highlights the importance of continued innovation in ensemble methodology.
+Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our ensemble models to predict several attributes of the influenza season at each week during the season.
+By illustrating the utility of these approaches to ensemble forecasting in a setting with complex population dynamics, this work highlights the importance of continued innovation in ensemble methodology.
 
 # Methods
 
-This paper presents a novel ensemble framework applied to forecasting specific features of influenza seasons in the U.S. 
+This paper presents a comparison of methods for determining weights for stacked density ensembles, applied to forecasting specific features of influenza seasons in the U.S. 
 First, we present a description of the influenza data we use in our application and the prediction targets.
 Next, we discuss the three component models utilized by our ensemble framework.
-Finally, we turn to the ensemble framework itself, describing our model's specification as well as that of two "baseline" ensemble models.
+Finally, we turn to the ensemble framework itself, describing the different ensemble model specifications used.
 
 ## Data and prediction targets
 
@@ -96,13 +102,17 @@ For this analysis, we use only the final reported wILI measures to train and pre
 
 The CDC defines the influenza season onset as the first of three successive weeks of the season for which wILI is greater than or equal to a threshold that is specific to the region and season. 
 This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations \citep{cdc2016}.
-The CDC provides historical threshold values for each region going back to the 2007/2008 season \citep{cdc2016-baselines}. Additionally, we define two other metrics specific to a region-season.
-The peak incidence is the maximum observed wILI measured in a season. The peak week is the week at which the maximum wILI for the season is observed.
+The CDC provides historical threshold values for each region going back to the 2007/2008 season \citep{cdc2016-baselines}. 
+Additionally, we define two other metrics specific to a region-season.
+The peak incidence is the maximum observed wILI measured in a season. 
+The peak week is the week at which the maximum wILI for the season is observed.
 
 Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
 For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
 For peak week, the bins are represented by integer values for each possible season week.
-For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 13.05), [13.05, $\infty$).  These bins were used in the 2016-2017 influenza prediction contest run by the CDC (cite something).
+For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. 
+Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 13.05), [13.05, $\infty$).  
+These bins were used in the 2016-2017 influenza prediction contest run by the CDC (cite something).
 
 We measure the accuracy of predictive distributions using the log score.
 The log score is a proper scoring rule \citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
@@ -111,10 +121,10 @@ We note that for peak week, in some region-seasons the same peak incidence was a
 In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC (cite something).
 
 ## Component models
-We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence.  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
+We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence.[[Cite Evan's paper on arxiv!]]  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
 
 ### Kernel Density Estimation (KDE)
-The simplest of the component models uses kernel density estimation [[TODO: cite Silverman]] to estimate a distribution for each target based on observed values of that target in previous seasons within the region of interest.
+The simplest of the component models uses kernel density estimation \citep{silverman1986density} to estimate a distribution for each target based on observed values of that target in previous seasons within the region of interest.
 We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016} to estimate the bandwidth parameter.
 For the peak incidence target, we fit to log-transformed observations of historical peak incidence.
 For the onset week prediction target, we estimated the probability of no onset as the proportion of region-seasons in all regions in the training phase where no week in the season met the criteria for being a season onset.
@@ -129,7 +139,7 @@ We set the sample size to $N = 10^5$.  In theory, this model assigns non-zero pr
 It is important to note that the predictions from this model do not change as new data are observed over the course of the season.
 
 ### Kernel Conditional Density Estimation (KCDE)
-We used kernel conditional density estimation and copulas to estimate a joint predictive distribution for flu incidence in each future week of the season, and then calculated predictive distributions for each target from that joint distribution.
+We used kernel conditional density estimation and copulas to estimate a joint predictive distribution for flu incidence in each future week of the season, and then calculated predictive distributions for each target from that joint distribution.[[Cite Evan's paper]]
 In our implementation, we first used KCDE to obtain separate predictive densities for flu incidence in each future week of the season.  Each of these predictive densities gives a conditional distribution for incidence at one future time point given recent observations of incidence and the current week of the season.  KCDE can be viewed as a distribution-based analogue of nearest-neighbors regression.  We then used a copula to model dependence among those individual predicitive densities, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.
 
 To predict seasonal quantities (onset, peak timing, and peak incidence), we simulate $N = 10^5$ trajectories of disease incidence from this joint predictive distribution.
@@ -158,7 +168,7 @@ The component model fits based on all of the training data were used to generate
 ## Ensemble models
 
 All of the ensemble models we consider in this article work by averaging predictions from the component models to obtain the ensemble prediction.
-Additionally, these methods are stacked model ensembles because they use leave-one-season-out predictions from the independently estimated component models as inputs to estimate the model weights ([[TODO: cite something -- wolpert stacking paper?]]).
+Additionally, these methods are stacked model ensembles because they use leave-one-season-out predictions from the independently estimated component models as inputs to estimate the model weights.\citep{Wolpert1992}
 We begin our discussion of ensemble methods with a general overview, introducing a common set of notation and giving a broad outline of the ensemble models we will use in this article.
 We then describe our proposed feature-weighted stacking ensemble model specification in more detail.
 
@@ -173,6 +183,7 @@ The combined predictive density $f(y|\bx)$ for a particular target can be writte
 f(y|\bx) = \sum_{m = 1}^M \pi_m(\bx) f_m(y|\bx^{(m)}). \label{eqn:EnsembleModel} 
 \end{equation}
 In Equation \eqref{eqn:EnsembleModel} the $\pi_m$ are the model weights, which are allowed to vary as a function of observed features in $\bx$.  We define $\bx$ to be a vector of all observed quantities that are used by any of the component models or in calculating the model weights.  In order to guarantee that $f(y|\bx)$ is a probability distribution we require that $\sum_{m = 1}^M \pi_m(\bx) = 1$ for all $\bx$.
+Figure \ref{fig:stacking-concept} illustrates the concept of stacking the predictive densities for each component model.
 
 In the following subsection, we propose a framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
 By _feature-dependent_ we mean that the weights associated with different component models are driven by observed features or covariates.
@@ -182,6 +193,7 @@ Based on exploration of training phase data and _a priori_ knowledge of the dise
 week of season, 
 component model uncertainty (defined as the minimum number of predictive distribution bins required to cover 90% probability), and 
 wILI measurement at the time of prediction.
+These features were chosen prior to and not changed after implementing test-phase predictions.
 
 We used four distinct methodologies to define weights to use for the stacking models:
 
@@ -235,7 +247,7 @@ For a pair of models $l, m \in \{1, ..., M\}$, $\rho_l(\bx) > \rho_m(\bx)$ indic
 The functions $\rho_m(\bx)$ could be parameterized and estimated using many different techniques, such as a linear specification in the features, splines, or so on.  We have chosen to estimate the functions $\rho_m(\bx)$ using gradient tree boosting.
 
 Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees that, when added together, create a function designed to minimize a given loss function. 
-In our application, the algorithm builds up the $\rho_m(\bx)$ that minimize the negative cross-validated log-score of the stacked prediction $f(y|\bX)$.  We have used the `xgb.train` function in the `xgboost` package ([[TODO: cite]]) for `R` to perform this estimation.
+In our application, the algorithm builds up the $\rho_m(\bx)$ that minimize the negative cross-validated log-score of the stacked prediction $f(y|\bX)$.  We have used the `xgb.train` function in the `xgboost` package for `R` to perform this estimation.\citep{xgboost}
 
 Specifically, we define a single tree as
 \begin{equation}
@@ -260,8 +272,6 @@ Gradient tree boosting is appealing as a method for estimating the functions $\r
 4. An $L_1$ penalty on the regression constants $\gamma_j$.  A large penalty encourages these constants to be small, so that the overall model weights change less in each boosting iteration.
 
 We selected values for these regularization parameters using a grid search optimizing leave-one-season-out cross-validated model performance.
-
-[[TODO: Discuss how varying some of these regularization parameters can give the simpler EW and dEM models??  Or ignore?  Or defer to supplement?]]
 
 <!-- To prevent the stacking model from overfitting the training data, we estimate the model parameters by optimizing a penalized loss function where the penalty encourages the splines to be smooth.  The underlying unpenalized loss function is a measure of the quality of the final predictive distribution $f_t(y_t)$, obtained by cross-validation.  Because model performance will be evaluated using log scores, we will use negative cross-validated log scores as the loss function during parameter estimation: -->
 <!-- The final predictions are obtained as a linear combination of the predictions from these component models.  The model weights depend on the week of the season in which the predictions are made.  We represent these weights as the softmax transformation of latent functions rho_ilt(season week) where i = 1, ..., 3 indexes the component model, l = 1, ..., 11 indexes the location (national or region 1 through 10), and t = 1, ..., 7 indexes the prediction target.  We estimate those latent functions rho_ilt via gradient tree boosting, optimizing leave-one-season-out crossvalidated log scores (using the definition of log scores specified for this competition). -->
@@ -296,6 +306,20 @@ To evaluate overall model performance, we computed the average log-score for eac
 Additionally for the peak wILI targets, we computed the average log-score for each model in the test seasons separately before and after the peak week.
 Similarly for the onset week target, we computed the average log-score for each model in the test seasons before and after the onset week.
 
+## Describe variation in log-scores of component models in training years (colored ribbon plot)
+
+## Compare estimated FW model-weights to log-scores to show method is reasonable (plot to come)
+
+## Interpret results of best overall FW model for each metric (plot to come)
+
+## Comparison of model performance by log-scores (whisker plots)
+
+## Comparison of ranked log-score performance (heatmap)
+
+  - worst performing model always a component model, never KCDE
+  - ensemble models, esp. regularized, show less variability
+  - CW best ensemble across each metric
+
 ```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
 flu_data$region[flu_data$region == "X"] <- "National"
 flu_data$region <- factor(flu_data$region,
@@ -329,9 +353,9 @@ ggplot() +
   theme_bw(base_size = 11)
 ```
 
-#### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}
+<!--#### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}-->
 
-```{r stacking-concept, echo=FALSE, fig.cap="\\label{fig:stacking-concept}Conceptual diagram of how the stacking models operate on probabilistic predictive distributions. Panel A shows the predictive distributions from three component models. Panel B shows scaled versions of the distributions from A, after being multiplied by model weights. In Panel C, the scaled distributions are literally stacked to create the final ensemble predictive distribution."}
+```{r stacking-concept, echo=FALSE, fig.height=3, fig.width=9, fig.keep='last', warning=FALSE, message=FALSE, fig.cap="\\label{fig:stacking-concept}Conceptual diagram of how the stacking models operate on probabilistic predictive distributions. The distributions illustrated here have density bins of 1 wILI unit, which differs from those used in the manuscript for illustrative purposes only. Panel A shows the predictive distributions from three component models. Panel B shows scaled versions of the distributions from A, after being multiplied by model weights. In Panel C, the scaled distributions are literally stacked to create the final ensemble predictive distribution."}
 awes_path <- find.package("awes")
 
 kde_full <- readRDS(file.path(awes_path,
@@ -389,7 +413,7 @@ p_base <- ggplot(pred_dens) +
 #    geom_col(aes(x=inc_bin, fill=mdl)) + 
     geom_bar(aes(x=inc_bin, fill=mdl), stat="identity") +
     scale_fill_brewer(palette="Set2") +
-    xlab("peak incidence value (in bins)") +
+    xlab("peak incidence value (binned wILI)") +
     coord_cartesian(xlim=c(0, 11), ylim=c(0, 0.5)) +
     theme_minimal() + 
     theme(legend.position = "none", panel.grid.minor=element_blank())
@@ -416,7 +440,7 @@ title_plot <- blankPlot +
     geom_text(aes(x=0, y=.1,label="C: Stacked prediction"), hjust=0, size=4.5)
 
 axis_plot <- blankPlot + 
-    geom_text(aes(x=.5, y=1,label="peak incidence value (in bins)"), size=4)
+    geom_text(aes(x=.5, y=1,label="peak incidence value (binned wILI)"), size=4)
 
 ## middle left
 p3 <- p_base + aes(y=probability * weight) + 
@@ -497,12 +521,12 @@ ggplot() +
 ```
 
 
-#### Figure: Example of log-scores and estimated weights from one region by season-week (x) for each model (color). Panel 1 has log-scores (y); Panel 2 has estimated weights (y) using degenerate EM, feature-weighted, and feature-weighted + smoothed \label{fig:example-weights}
+<!--#### Figure: Example of log-scores and estimated weights from one region by season-week (x) for each model (color). Panel 1 has log-scores (y); Panel 2 has estimated weights (y) using degenerate EM, feature-weighted, and feature-weighted + smoothed \label{fig:example-weights}
 
-#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with log-score (y) \label{fig:test-phase-log-score}
+#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with log-score (y) \label{fig:test-phase-log-score} -->
 
 
-```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v1.  Log scores across all seasons/season weeks represented in box plots.  Log scores of -Infinity are represented with a plus sign at -10."}
+```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v1.  Log scores across all seasons/season weeks represented in box plots.  Log scores of -Infinity are represented with a plus sign at -10.", fig.show='hide'}
 awes_path <- find.package("awes")
 
 preds <- assemble_predictions(
@@ -784,7 +808,7 @@ ggplot(summary_figure_df) +
 
 
 
-```{r test_phase_log_scores_summary_v2b, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v2.  Point estimates and confidence intervals for mean log score for each model in weeks on or after the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+```{r test_phase_log_scores_summary_v2b, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v2.  Point estimates and confidence intervals for mean log score for each model in weeks on or after the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model.", fig.show='hide'}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
@@ -1126,8 +1150,19 @@ res$model <- factor(res$model,
     "EW", "CW", "FW-wu",
     "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
 
-ggplot() +
-  geom_tile(aes(x = model, y = season, fill = rank), data = res) +
+overall <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Average",
+        mean_log_score = mean(mean_log_score),
+        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+        ) %>% ungroup()
+
+res_with_overall <- bind_rows(res, overall)
+
+
+ggplot(data = res_with_overall, aes(x = model, y = season)) +
+  geom_tile(aes(fill = rank)) +
+  geom_text(aes(label=format(round(mean_log_score,2), nsmall=2))) +
   facet_wrap(~ prediction_target, ncol = 1) +
   scale_fill_manual("Model Rank",
     breaks = as.character(1:9),
@@ -1139,7 +1174,7 @@ ggplot() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with MAE (y) \label{fig:test-phase-MAE}
+<!--#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with MAE (y) \label{fig:test-phase-MAE}-->
 
 
 # Conclusion
@@ -1156,6 +1191,8 @@ ggplot() +
  - operates on predictive distributions, not just point-estimates
  - General framework (not just time-series or infectious disease) 
  - framework could be used to answer epidemiologically relevant questions: when do certain models contain information that substantially improve predictions, e.g. adding weather, mechanistic models, strain specific models, etc...
+
+[[TODO: Discuss how varying some of these regularization parameters can give the simpler EW and dEM models??  Or ignore?  Or defer to supplement?]]
 
 ### Limitations
 
