@@ -51,7 +51,7 @@ In recent years, these "ensemble" forecasting approaches are frequently among th
 
 Ensembles are a natural choice for noisy, complex, and interdependent systems that evolve over time. 
 In these settings, no one model is likely to be able to capture and predict the full set of complex relationships that drive future observations from a particular system of interest. 
-Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes. 
+Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes.
 
 Using component models that generate predictive densities for outcomes of interest, we have implemented a series of ensembles using different methods for choosing the weights for each model.  
 Specifically, we compare three different approaches. 
@@ -88,8 +88,9 @@ By illustrating the utility of these approaches to ensemble forecasting in a set
 
 This paper presents a comparison of methods for determining weights for stacked density ensembles, applied to forecasting specific features of influenza seasons in the U.S. 
 First, we present a description of the influenza data we use in our application and the prediction targets.
-Next, we discuss the three component models utilized by our ensemble framework.
-Finally, we turn to the ensemble framework itself, describing the different ensemble model specifications used.
+Next, we discuss the three component models utilized by the ensemble framework.
+We then turn to the ensemble framework itself, describing the different ensemble model specifications used.
+Finally, we present the results of our application of these methods to the influenza data and conclude with a discussion.
 
 ## Data and prediction targets
 
@@ -302,23 +303,24 @@ Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
 
-To evaluate overall model performance, we computed the average log-score for each model across all regions and/or test seasons.
-Additionally for the peak wILI targets, we computed the average log-score for each model in the test seasons separately before and after the peak week.
-Similarly for the onset week target, we computed the average log-score for each model in the test seasons before and after the onset week.
+To evaluate overall model performance, we computed log scores for all predictions made by each model across all regions and test phase seasons.  In this discussion, we will focus on results for predictions made before the peak week (for predictions of peak timing or peak incidence) or the season onset (for predicitons of onset timing).  These predictions are the most relevant to decision makers using predictions as inputs to set public policy.  The relative performance of the modeling approaches considered here is similar for predictions made over the course of the entire season (Supplemental Figure [[TODO: reference supplemental figure with overall B-W plot]]).
 
-## Describe variation in log-scores of component models in training years (colored ribbon plot)
+Figure \ref{fig:ComponentModelLogScoresVsWeek} displays variation in leave-one-season-out log scores from the three component models over the course of the training phase seasons.  In general, average performance of the SARIMA and KCDE models track each other closely over the course of the season, with performance improving as more data become available.  In the training seasons, average performance of the KDE model tends to be better than KCDE and SARIMA during the first few weeks of the season.  Near the beginning of some seasons, predictions from the SARIMA model are quite a bit worse than predictions from the other two component models.  Supplemental Figure [[TODO: Insert figure number]] shows that performance of the component models also varies with the model's uncertainty, as measured by the number of bins required to cover 90\% in the predictive distribution.
 
-## Compare estimated FW model-weights to log-scores to show method is reasonable (plot to come)
+Figure \ref{fig:example-weights} displays the estimated component model weights from the \textbf{CW} and \textbf{FW-reg-w} methods for predictions of season onset for each week in the season.  As expected, near the beginning of the season the \textbf{FW-reg-w} ensemble assigns higher weight to the \textbf{KDE} model than the \textbf{CW} ensemble.  The weights assigned to the component model track the relative performance of those models in the training phase fairly well.
 
-## Interpret results of best overall FW model for each metric (plot to come)
+We estimated mean performance of each component model for predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset) (Figure \ref{fig:}).  
 
 ## Comparison of model performance by log-scores (whisker plots)
 
 ## Comparison of ranked log-score performance (heatmap)
-
   - worst performing model always a component model, never KCDE
   - ensemble models, esp. regularized, show less variability
   - CW best ensemble across each metric
+
+## Interpret results of best overall FW model for each metric (plot to come)
+
+
 
 ```{r raw_data_plot, echo=FALSE, fig.height=8, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
 flu_data$region[flu_data$region == "X"] <- "National"
@@ -349,8 +351,8 @@ ggplot() +
   scale_x_date() +
   xlab("Time") +
   ylab("Weighted Proportion of Doctor's Office Visits\nwith Influenza-like Illness\n") +
-  ggtitle("Influenza Data by Region") +
-  theme_bw(base_size = 11)
+  ggtitle("Influenza Data by Region")
+#  theme_bw(base_size = 11)
 ```
 
 <!--#### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}-->
@@ -453,20 +455,13 @@ grid.arrange(p1, p2, p4, ncol=3)
 ```
 
 
-```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsWeek}Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the train and test phases when all three component models produced predictions."}
+```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsWeek}Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the training phase when all three component models produced predictions."}
 awes_path <- find.package("awes")
 color_palette <- c("#E69F00", "#56B4E9", "#009E73")
 
 log_scores <- bind_rows(
     assemble_predictions(
       preds_path = file.path(awes_path, "estimation/loso-predictions"),
-      regions = c("National", paste0("Region", 1:10)),
-      models = c("kde", "kcde", "sarima"),
-      prediction_targets = c("onset", "peak_week", "peak_inc"),
-      prediction_types = c("log_score")
-    ),
-    assemble_predictions(
-      preds_path = file.path(awes_path, "evaluation/test-predictions"),
       regions = c("National", paste0("Region", 1:10)),
       models = c("kde", "kcde", "sarima"),
       prediction_targets = c("onset", "peak_week", "peak_inc"),
@@ -521,9 +516,187 @@ ggplot() +
 ```
 
 
-<!--#### Figure: Example of log-scores and estimated weights from one region by season-week (x) for each model (color). Panel 1 has log-scores (y); Panel 2 has estimated weights (y) using degenerate EM, feature-weighted, and feature-weighted + smoothed \label{fig:example-weights}
+```{r log_scores_and_weights_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=3.5, fig.cap="\\label{fig:example-weights}Example of component model weights from the \\textbf{CW} and \\textbf{FW-reg-w} models.  Panel A shows mean, minimum, and maximum log scores achieved by each component model for predictions of season onset timing at the national level in each week of the season, summarizing across all seasons in the training phase when all three component models produced predictions.  Panel B shows log scores from the \\textbf{CW} and \\textbf{FW-reg-w} ensemble methods at each week in the season."}
+get_legend_grob <- function(x) {
+  data <- ggplot2:::ggplot_build(x)
+  
+  plot <- data$plot
+  panel <- data$panel
+  data <- data$data
+  theme <- ggplot2:::plot_theme(plot)
+  position <- theme$legend.position
+  if (length(position) == 2) {
+    position <- "manual"
+  }
+  
+  legend_box <- if (position != "none") {
+    ggplot2:::build_guides(plot$scales, plot$layers, plot$mapping, 
+      position, theme, plot$guides, plot$labels)
+  } else {
+    ggplot2:::zeroGrob()
+  }
+  if (ggplot2:::is.zero(legend_box)) {
+    position <- "none"
+  }
+  else {
+    legend_width <- gtable:::gtable_width(legend_box) + theme$legend.margin
+    legend_height <- gtable:::gtable_height(legend_box) + theme$legend.margin
+    just <- valid.just(theme$legend.justification)
+    xjust <- just[1]
+    yjust <- just[2]
+    if (position == "manual") {
+      xpos <- theme$legend.position[1]
+      ypos <- theme$legend.position[2]
+      legend_box <- editGrob(legend_box, vp = viewport(x = xpos, 
+        y = ypos, just = c(xjust, yjust), height = legend_height, 
+        width = legend_width))
+    }
+    else {
+      legend_box <- editGrob(legend_box, vp = viewport(x = xjust, 
+        y = yjust, just = c(xjust, yjust)))
+    }
+  }
+  return(legend_box)
+}
 
-#### Figure: test phase summary: 3 row-facets, one for each target, each model (color?) year (x) is a point with log-score (y) \label{fig:test-phase-log-score} -->
+
+awes_path <- find.package("awes")
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+log_scores <- bind_rows(
+    assemble_predictions(
+      preds_path = file.path(awes_path, "estimation/loso-predictions"),
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    )
+  ) %>%
+  gather_("prediction_target", "log_score",
+    paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
+  mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "onset" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model))
+
+awes_path <- find.package("awes")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "onset") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits2/model_weights_National_onset_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+)
+
+p_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  xlab("Week of Season at Analysis Time") +
+  ylab("Log Score") +
+  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 11)
+
+p_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+  ylab("Model Weight") +
+  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 11) +
+  theme(legend.position = "none",
+    plot.margin = unit(c(6, 6, 6, 10), "pt"))
+
+component_legend <- get_legend_grob(p_scores)
+p_scores <- p_scores +
+  theme(legend.position = "none")
+
+ensemble_legend <- get_legend_grob(
+  ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      size = ensemble_method
+    ),
+    data = model_weights) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  theme_bw(base_size = 11)
+)
+
+grid.newpage()
+pushViewport(viewport(layout =
+    grid.layout(nrow = 3, ncol = 2,
+      heights = unit(c(3, 1, 1), c("lines", "null", "null")),
+      widths = unit(c(4, 1), c("null", "null")))))
+grid.text("Component Model Weights and Training Phase Log Scores\nNational, Season Onset",
+  gp = gpar(fontsize = 14),
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
+print(p_scores, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+print(p_weights, vp = viewport(layout.pos.row = 3, layout.pos.col = 1))
+pushViewport(viewport(layout.pos.row = 2, layout.pos.col = 2))
+grid.draw(component_legend)
+upViewport()
+pushViewport(viewport(layout.pos.row = 3, layout.pos.col = 2))
+grid.draw(ensemble_legend)
+upViewport()
+```
 
 
 ```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v1.  Log scores across all seasons/season weeks represented in box plots.  Log scores of -Infinity are represented with a plus sign at -10.", fig.show='hide'}
@@ -581,7 +754,7 @@ ggplot() +
 ```
 
 
-```{r test_phase_log_scores_summary_v2, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v2.  Point estimates and confidence intervals for mean log score for each model in weeks before the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model.  This model could be fit separately to obtain estimates for mean log scores in weeks on or after the target occurred."}
+```{r test_phase_log_scores_summary_v2, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Point estimates and confidence intervals for mean log score for each model in weeks before the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
@@ -1145,6 +1318,8 @@ res <- cbind(temp, res) %>%
   group_by_(.dots = c("prediction_target", "season")) %>%
   mutate(mean_log_score = as.numeric(mean_log_score),
     rank = factor(rank(-1 * as.numeric(mean_log_score))))
+res$prediction_target <- factor(res$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
 res$model <- factor(res$model,
   levels = c("KDE", "KCDE", "SARIMA",
     "EW", "CW", "FW-wu",
