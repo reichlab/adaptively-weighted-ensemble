@@ -26,6 +26,66 @@ library(nlme)
 library(multcomp)
 ```
 
+```{r log_scores_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsWeek}Mean, minimum, and maximum log scores achieved by each component model in each week of the season, summarizing across all seasons in both the training phase when all three component models produced predictions."}
+awes_path <- find.package("awes")
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+log_scores <- bind_rows(
+    assemble_predictions(
+      preds_path = file.path(awes_path, "estimation/loso-predictions"),
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    )
+  ) %>%
+  gather_("prediction_target", "log_score",
+    paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
+  mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
+  group_by(model, region, prediction_target, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model))
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "onset"] <- "Onset Timing"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_inc"] <- "Peak Incidence"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_week"] <- "Peak Timing"
+summarized_log_scores$prediction_target <- factor(summarized_log_scores$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+regions_to_plot <- c("National", "Region1", "Region7")
+
+ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  scale_fill_manual(values = color_palette) +
+  scale_colour_manual(values = color_palette) +
+  facet_grid(region ~ prediction_target) +
+  xlab("Week of Season at Analysis Time") +
+  ylab("Log Score") +
+  ggtitle("Log Scores vs. Week of Season at Analysis Time") +
+  theme_bw()
+```
+
 
 ```{r log_scores_vs_confidence, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Log scores vs. confidence v1: log scores achieved by each component model vs. model confidence, all seasons in both the train and test phases when all three component models produced predictions."}
 color_palette <- c("#E69F00", "#56B4E9", "#009E73")
@@ -275,6 +335,229 @@ ggplot() +
 #   theme_bw()
 ```
 
+```{r test_phase_log_scores_summary_v2, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Point estimates and confidence intervals for mean log score for each model in weeks before the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+  
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = gsub(" ", "", region),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    model = factor(model, levels = all_models),
+    score = exp(log_score)
+  )
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+unique_region_season_model_autocor <- preds %>%
+  filter(before_target_date == "before\ntarget date") %>%
+  select_("region", "analysis_time_season", "model", "prediction_target", "log_score") %>%
+  group_by_("region", "analysis_time_season", "model", "prediction_target") %>%
+  summarize(
+    log_score_autocor = acf(log_score, plot = FALSE)[["acf"]][2, 1, 1]
+  )
+## set to 1 for kde
+unique_region_season_model_autocor$log_score_autocor[
+  is.na(unique_region_season_model_autocor$log_score_autocor)] <- 1
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season),
+    model = factor(model),
+    prediction_target = factor(prediction_target),
+    unique_region_season_model_target = factor(
+      paste(region, analysis_time_season, model, prediction_target, sep = "_")
+    )
+  )
+results_fit_before_target <- lme(log_score ~ model * prediction_target,
+  random = ~ 1 | unique_region_season_model_target,
+  correlation = corAR1(
+    value = mean(unique_region_season_model_autocor$log_score_autocor),
+    form = ~ analysis_time_season_week | unique_region_season_model_target),
+  method = "REML",
+  data = preds[preds$before_target_date == "before\ntarget date", ])
+
+num_models <- length(all_models)
+num_targets <- length(all_targets)
+
+unique_model_descriptors <- paste0("model", all_models)
+unique_target_descriptors <- paste0("prediction_target", all_targets)
+
+lc_df <- expand.grid(
+  model = all_models,
+  target = all_targets,
+  stringsAsFactors = FALSE)
+
+lc_df$model_descriptor <- paste0("model", lc_df$model)
+lc_df$target_descriptor <- paste0("prediction_target", lc_df$target)
+lc_df$name <- apply(as.matrix(lc_df[, 1:2]), 1, paste, collapse = "-")
+
+num_leading_cols <- ncol(lc_df)
+coef_cols <- seq(
+  from = num_leading_cols + 1,
+  length = num_models * num_targets
+)
+
+# corresponding indicator vector for each coefficient
+coef_names <- names(fixef(results_fit_before_target))
+unique_coef_name_component_descriptors <- unique(unlist(strsplit(coef_names, ":")))
+intercept_model <- unique_model_descriptors[
+  !(unique_model_descriptors %in% unique_coef_name_component_descriptors)]
+intercept_target <- unique_target_descriptors[
+  !(unique_target_descriptors %in% unique_coef_name_component_descriptors)]
+for(coef_ind in seq(from = 1, to = length(coef_names))) {
+	split_name <- unlist(strsplit(coef_names[[coef_ind]], ":"))
+	if(!any(split_name %in% unique_model_descriptors[unique_model_descriptors != intercept_model])) {
+		split_name <- c(split_name, unique_model_descriptors)
+	}
+	if(!any(split_name %in% unique_target_descriptors[unique_target_descriptors != intercept_target])) {
+		split_name <- c(split_name, unique_target_descriptors)
+	}
+
+	lc_df[[paste0("coef", coef_ind)]] <- 0
+	lc_df[[paste0("coef", coef_ind)]][
+	  lc_df$model_descriptor %in% split_name &
+		lc_df$target_descriptor %in% split_name] <- 1
+}
+
+# ## contrasts of
+# ## (mean performance CRF across data set and location) - (mean performance for each other method across data set and location),
+# ## within response (type/intensity)
+# for(fit_method in unique_fit_methods[unique_fit_methods != "CRF"]) {
+#   for(response in unique_responses) {
+#     rowind <- rowind + 1
+#   	confint_rows <- c(confint_rows, rowind)
+# 	  
+#     crf_rowind <- which(lc_df$name == paste0("CRF", "-", response))
+#     alt_rowind <- which(lc_df$name == paste0(fit_method, "-", response))
+#     
+#   	lc_df[rowind, ] <- rep(NA, ncol(lc_df))
+#     lc_df$name[rowind] <- paste0("CRF", "-", fit_method, "-", response)
+#   	lc_df$response[rowind] <- response
+#   	lc_df[rowind, coef_cols] <- lc_df[crf_rowind, coef_cols] - lc_df[alt_rowind, coef_cols]
+#   }
+# }
+
+lc_df$name <- factor(lc_df$name, levels = lc_df$name)
+
+K_mat <- as.matrix(lc_df[, coef_cols])
+
+# get point estimates
+lc_df$pt_est <- as.vector(K_mat %*% matrix(fixef(results_fit_before_target)))
+
+# get familywise CIs
+confint_rows <- seq_len(nrow(lc_df))
+lc_df$fam_CI_lb <- NA
+lc_df$fam_CI_ub <- NA
+fam_CI_obj <- glht(results_fit_before_target, linfct = K_mat[confint_rows, ])
+temp <- confint(fam_CI_obj)$confint
+lc_df$fam_CI_lb[confint_rows] <- temp[, 2]
+lc_df$fam_CI_ub[confint_rows] <- temp[, 3]
+
+# get individual CIs
+lc_df$ind_CI_lb <- NA
+lc_df$ind_CI_ub <- NA
+for(rowind in confint_rows) {
+	ind_CI_obj <- glht(results_fit_before_target, linfct = K_mat[rowind, , drop = FALSE])
+	temp <- confint(ind_CI_obj)$confint
+	lc_df$ind_CI_lb[rowind] <- temp[, 2]
+	lc_df$ind_CI_ub[rowind] <- temp[, 3]
+}
+
+
+summary_figure_df <-
+  lc_df[confint_rows, c("model", "target", "pt_est", "fam_CI_lb", "fam_CI_ub", "ind_CI_lb", "ind_CI_ub")]
+
+summary_figure_df$model[summary_figure_df$model == "kde"] <- "KDE"
+summary_figure_df$model[summary_figure_df$model == "kcde"] <- "KCDE"
+summary_figure_df$model[summary_figure_df$model == "sarima"] <- "SARIMA"
+summary_figure_df$model[summary_figure_df$model == "equal_weights"] <- "EW"
+summary_figure_df$model[summary_figure_df$model == "em_stacking"] <- "CW"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_unregularized"] <- "FW-wu"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+summary_figure_df$model <- factor(summary_figure_df$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+summary_figure_df$target[summary_figure_df$target == "onset"] <- "Onset Timing"
+summary_figure_df$target[summary_figure_df$target == "peak_inc"] <- "Peak Incidence"
+summary_figure_df$target[summary_figure_df$target == "peak_week"] <- "Peak Timing"
+summary_figure_df$target <- factor(summary_figure_df$target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+ggplot(summary_figure_df) +
+  geom_point(aes(x = model, y = pt_est)) +
+  geom_errorbar(aes(x = model, ymin = fam_CI_lb, ymax = fam_CI_ub)) +
+  geom_errorbar(aes(x = model, ymin = ind_CI_lb, ymax = ind_CI_ub), width = 0.2) +
+  facet_wrap(~ target, ncol = 1) +
+  xlab("Model") +
+  ylab("Mean Log Score") +
+# 	scale_y_continuous(limits = c(0.6, 1), expand = c(0, 0)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
 
 
 ```{r test_phase_log_scores_summary_v2, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v2: log scores for all predictions in a season summed.  Log scores of -Infinity are not represented."}
