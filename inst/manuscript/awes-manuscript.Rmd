@@ -307,22 +307,21 @@ To evaluate overall model performance, we computed log scores for all prediction
 
 ## Feature-Weighted Ensemble Model Weights Reflect Trends in Component Model Log Scores
 
-Figure \ref{fig:ComponentModelLogScoresVsWeek} displays variation in leave-one-season-out log scores from the three component models over the course of the training phase seasons, along with the corresponding model weight estimates from the \textbf{CW} and \textbf{FW-reg-w} models.  In general, average performance of the SARIMA and KCDE models track each other closely over the course of the season, with performance improving as more data become available.  In the training seasons, average performance of the KDE model tends to be better than KCDE and SARIMA during the first few weeks of the season.  Near the beginning of some seasons, predictions from the SARIMA model are quite a bit worse than predictions from the other two component models.  Supplemental Figure [[TODO: Insert figure number]] shows that performance of the component models also varies with the model's uncertainty, as measured by the number of bins required to cover 90\% in the predictive distribution.
+Figure \ref{fig:example-weights} displays variation in leave-one-season-out log scores from the three component models over the course of the training phase seasons, along with the corresponding model weight estimates from the \textbf{CW} and \textbf{FW-reg-w} models.  Performance of the \textbf{SARIMA} and \textbf{KCDE} models is similar, with mean log scores from those models starting out near or slightly below the mean performance of \textbf{KDE}, but with performance improving as more data become available.  Near the beginning of some seasons, predictions from the \textbf{SARIMA} model are quite a bit worse than predictions from the other two component models.  Supplemental Figure [[TODO: insert figure number]] illustrates that these patterns are consistent across the other regions.  Supplemental Figure [[TODO: Insert figure number]] shows that performance of the component models also varies with the model's uncertainty, as measured by the number of bins required to cover 90\% in the predictive distribution.
 
-Figure \ref{fig:example-weights} displays the estimated component model weights from the \textbf{CW} and \textbf{FW-reg-w} methods for predictions of season onset for each week in the season.  As expected, near the beginning of the season the \textbf{FW-reg-w} ensemble assigns higher weight to the \textbf{KDE} model than the \textbf{CW} ensemble.  The weights assigned to the component model track the relative performance of those models in the training phase fairly well.
+The model weights assigned by the feature weighted ensemble models generally track these trends in relative model performance.  For all three targets, at the national level the weight assigned to the \textbf{SARIMA} model increases and the weight assigned to \textbf{KDE} decreases as the season progresses.  However, the magnitude of shifts in model weights as the weighting features vary is different for the three prediction targets.
 
 ## The Best 7 of 9 Models Have Similar Performance in Aggregate
 
-Box and Whiskers plot
+Aggregating across all combinations of region, season, and week of the season in the test phase, most of the models had similar performance (Figure \ref{fig:test_phase_log_score_boxplot}).  The most important exception to this is the \textbf{KDE} model, which achieved consistently lower log scores than the other methods, including several cases where the Monte Carlo sampling procedure we used to approximate the sampling distribution assigned probability 0 to the true peak incidence bin (there was one such case for the \textbf{KCDE} model).  The low performance of the \textbf{KDE} model pulled the log scores for the \textbf{EW} method slightly below the other methods, and resulted in some outlying cases where the unregularized \textbf{FW-wu} method performed poorly for predicting peak incidence.  However, aggregated performance of the \textbf{KCDE}, \textbf{SARIMA}, \textbf{CW}, and variations on the \textbf{FW} models was quite similar in most cases.
 
-We estimated mean performance of each component model for predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset) (Figure \ref{fig:}).  
+## Ensemble Methods Have More Stable Performance Across Seasons for Early-Season Predictions
 
-## Ensemble Methods Have More Stable Performance Across Seasons
+Although the aggregate performance of these models is quite similar, some differences between the methods begin to emerge when we examine performance in more detail.  Here, we focus on performance of each method for predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset); additionally, we examine relative performance of the models in each test season separately (Figure \ref{fig:test_phase_log_scores_heatmap}).
+
+In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.
 
 
-
-## Comparison of ranked log-score performance (heatmap)
-  - worst performing model always a component model, never KCDE
   - ensemble models, esp. regularized, show less variability
   - CW best ensemble across each metric
 
@@ -966,7 +965,7 @@ upViewport()
 ```
 
 
-```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Test phase log scores summary v1.  Log scores across all seasons/season weeks represented in box plots.  Log scores of -Infinity are represented with a cross at -15."}
+```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_score_boxplot}Log scores across all regions, seasons, and season weeks represented in box plots.  Log scores of negative infinity are represented with a cross at -15."}
 awes_path <- find.package("awes")
 
 preds <- assemble_predictions(
@@ -1023,7 +1022,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred."}
+```{r test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_scores_heatmap}Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred."}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
@@ -1145,8 +1144,18 @@ overall_rank <- res %>% group_by(prediction_target, model) %>%
     summarize(
         season="Average Rank",
 #        mean_log_score = mean(mean_log_score),
-        mean_log_score = "",
+#        mean_log_score = "",
+        mean_log_score = format(round(mean(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
         rank = round(mean(as.numeric(rank)), 2)
+        ) %>% ungroup()
+
+minimum_rank <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Rank",
+#        mean_log_score = mean(mean_log_score),
+#        mean_log_score = "",
+        mean_log_score = format(round(max(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
+        rank = round(max(as.numeric(rank)), 2)
         ) %>% ungroup()
 
 overall_log_score <- res %>% group_by(prediction_target, model) %>%
@@ -1166,6 +1175,7 @@ res_with_overall <- bind_rows(
   res %>%
     mutate(mean_log_score = format(round(mean_log_score,2), nsmall=2)),
   overall_rank,
+  minimum_rank,
   overall_log_score)
 
 ggplot(data = res_with_overall, aes(x = model, y = season)) +
