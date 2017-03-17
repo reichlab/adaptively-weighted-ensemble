@@ -303,30 +303,29 @@ Additionally, the manuscript itself was dynamically generated using RMarkdown.
 
 # Results
 
-To evaluate overall model performance, we computed log scores for all predictions made by each model across all regions and test phase seasons.  We also examined results for predictions made before the peak week (for predictions of peak timing or peak incidence) or the season onset (for predicitons of onset timing).  These predictions are the most relevant to decision makers using predictions as inputs to set public policy.  The relative performance of the modeling approaches considered here is similar for predictions made over the course of the entire season (Supplemental Figure [[TODO: reference supplemental figure with overall B-W plot]]).
+To evaluate overall model performance, we computed log scores for all predictions made by each model across all regions and test phase seasons.  We also examined results for predictions made before the peak week (for predictions of peak timing or peak incidence) or the season onset (for predicitons of onset timing) within each of the test phase seasons.
 
-## Feature-Weighted Ensemble Model Weights Reflect Trends in Component Model Log Scores
+### Feature-Weighted Ensemble Model Weights Reflect Trends in Component Model Log Scores
 
 Figure \ref{fig:example-weights} displays variation in leave-one-season-out log scores from the three component models over the course of the training phase seasons, along with the corresponding model weight estimates from the \textbf{CW} and \textbf{FW-reg-w} models.  Performance of the \textbf{SARIMA} and \textbf{KCDE} models is similar, with mean log scores from those models starting out near or slightly below the mean performance of \textbf{KDE}, but with performance improving as more data become available.  Near the beginning of some seasons, predictions from the \textbf{SARIMA} model are quite a bit worse than predictions from the other two component models.  Supplemental Figure [[TODO: insert figure number]] illustrates that these patterns are consistent across the other regions.  Supplemental Figure [[TODO: Insert figure number]] shows that performance of the component models also varies with the model's uncertainty, as measured by the number of bins required to cover 90\% in the predictive distribution.
 
 The model weights assigned by the feature weighted ensemble models generally track these trends in relative model performance.  For all three targets, at the national level the weight assigned to the \textbf{SARIMA} model increases and the weight assigned to \textbf{KDE} decreases as the season progresses.  However, the magnitude of shifts in model weights as the weighting features vary is different for the three prediction targets.
 
-## The Best 7 of 9 Models Have Similar Performance in Aggregate
+### The Best 7 of 9 Models Have Similar Performance in Aggregate
 
-Aggregating across all combinations of region, season, and week of the season in the test phase, most of the models had similar performance (Figure \ref{fig:test_phase_log_score_boxplot}).  The most important exception to this is the \textbf{KDE} model, which achieved consistently lower log scores than the other methods, including several cases where the Monte Carlo sampling procedure we used to approximate the sampling distribution assigned probability 0 to the true peak incidence bin (there was one such case for the \textbf{KCDE} model).  The low performance of the \textbf{KDE} model pulled the log scores for the \textbf{EW} method slightly below the other methods, and resulted in some outlying cases where the unregularized \textbf{FW-wu} method performed poorly for predicting peak incidence.  However, aggregated performance of the \textbf{KCDE}, \textbf{SARIMA}, \textbf{CW}, and variations on the \textbf{FW} models was quite similar in most cases.
+Aggregating across all combinations of region, season, and week of the season in the test phase, most of the models had similar performance (Figure \ref{fig:test_phase_log_score_boxplot}).  The most important exception to this is the \textbf{KDE} model, which achieved consistently lower log scores than the other methods, including several cases where the Monte Carlo sampling procedure we used to approximate the predictive distribution assigned probability 0 to the true peak incidence bin (there was one such case for the \textbf{KCDE} model).  The low performance of the \textbf{KDE} model pulled the log scores for the \textbf{EW} method slightly below the other methods, and resulted in some outlying cases where the unregularized \textbf{FW-wu} method performed poorly for predicting peak incidence.  However, aggregated performance of the \textbf{KCDE}, \textbf{SARIMA}, \textbf{CW}, and variations on the \textbf{FW} models was quite similar in most cases.  A linear mixed effects model was not able to distinguish any statistically significant differences in mean performance of these methods (Supplemental Figure [[TODO: fit model, picture in supplement]]).
 
-## Ensemble Methods Have More Stable Performance Across Seasons for Early-Season Predictions
+### Ensemble Methods Have More Stable Performance Across Seasons for Early-Season Predictions
 
-Although the aggregate performance of these models is quite similar, some differences between the methods begin to emerge when we examine performance in more detail.  Here, we focus on performance of each method for predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset); additionally, we examine relative performance of the models in each test season separately (Figure \ref{fig:test_phase_log_scores_heatmap}).
+Although the aggregate performance of these models is quite similar, some differences between the methods begin to emerge when we examine performance in more detail.  Predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset timing) are the most relevant to decision makers using the predictions as inputs to set public policy.  Additionally, it is important that these predictions be of consistent quality in all seasons, whether the seasonal dynamics follow historic seasonal trends or diverge from those common patterns.  Here, we explore relative performance of predictions from each model that were generated before the onset or peak week in each test season (Figure \ref{fig:test_phase_log_scores_heatmap}).
 
-In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.
+In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.  Within each season, the component models are often among either the best-performing or the worst-performing models.  For example, the \textbf{SARIMA} model ranks first for predictions of peak timing in four out of five seasons and last in the fifth season, but ranks last for predictions of peak incidence in four out of five seasons and first in the remaining season.  Similar trends, though slightly less extreme, also hold for \textbf{KDE} and \textbf{KCDE}.
 
+The ensemble methods have more stable performance across the test phase seasons.  Only the \textbf{FW-reg-w} method had at least median performance in all seasons for predictions of onset timing; only \textbf{EW} and \textbf{FW-reg-w} had at least median performance in all seasons for predictions of peak timing; and only \textbf{FW-reg-wu} and \textbf{FW-reg-wui} had at least median performance in all seasons for predictions of peak incidence.
 
-  - ensemble models, esp. regularized, show less variability
-  - CW best ensemble across each metric
+Model consistency can also be measured with the minimum of the log scores achieved across the test phase seasons.  Here again the ensemble methods outperform the component models.  In particular, worst-case performance of the \textbf{EW} and regularized \textbf{FW} methods is in the top half of all methods for all three prediction targets.
 
-## Interpret results of best overall FW model for each metric (plot to come)
-
+For example, consider predictions of peak timing, which might be used to plan vaccine production and distribution ([[TODO: cite something?]]).  Among the component models we considered, \textbf{SARIMA} had the highest mean log score across the test phase, and was the best model in four out of five test phase seasons.  However, it had the worst performance of all models we considered in the 2015/2016 season.  The \textbf{EW} and \textbf{FW-reg-w} ensembles achieved only slightly lower average log scores than \textbf{SARIMA} overall, were among the best-performing methods in all five test seasons, and assigned about 60 to 70 percent more probability to the eventually realized peak week than \textbf{SARIMA} in predictions made during the season that \textbf{SARIMA} struggled.
 
 
 ```{r raw_data_plot, echo=FALSE, fig.height=4, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
@@ -1171,12 +1170,26 @@ overall_log_score <- res %>% group_by(prediction_target, model) %>%
   mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
   ungroup()
 
+minimum_log_score <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Log Score",
+        mean_log_score = format(round(min(mean_log_score), 2), nsmall=2)
+#        rank = NA
+#        mean_log_score = "",
+#        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+    ) %>%
+  ungroup() %>%
+  group_by(prediction_target) %>%
+  mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
+  ungroup()
+
 res_with_overall <- bind_rows(
   res %>%
     mutate(mean_log_score = format(round(mean_log_score,2), nsmall=2)),
   overall_rank,
   minimum_rank,
-  overall_log_score)
+  overall_log_score,
+  minimum_log_score)
 
 ggplot(data = res_with_overall, aes(x = model, y = season)) +
   geom_tile(aes(fill = rank)) +
@@ -1205,22 +1218,27 @@ ggplot(data = res_with_overall, aes(x = model, y = season)) +
 
 ### Achievements
 
- - developed ensemble framework that makes [[better]] predictions on average than component models
- - ensemble method uses novel method to estimate feature-dependent weights
- - predictions disseminated and updated weekly
- 
-### Strengths/novelty
+In this work we have examined the potential for ensemble methods to improve infectious disease predictions.  We explored a nested series of ensemble methods ranging from using equal model weights to more complex schemes with weights that varied as functions of multiple covariates.  These ensemble methods achieved overall performance that was about as good as the individual component models, with increased stability in model performance across different seasons.
 
- - feature-weighting works regardless of discrete/continuous covariate
- - operates on predictive distributions, not just point-estimates
- - General framework (not just time-series or infectious disease) 
- - framework could be used to answer epidemiologically relevant questions: when do certain models contain information that substantially improve predictions, e.g. adding weather, mechanistic models, strain specific models, etc...
+This increased stability is important to public health decision makers using predictions as inputs to set policy.  If a model does well in most seasons but occasionally fails badly, planning decisions may be affected negatively in those failing years.  This may be particularly important in a public health setting where the events that are most important to get right are those relatively rare cases when incidence is much larger than usual or the season timing is earlier or later than usual ([[TODO:: I believe this is true, but is this a citable claim?]]).  This reduction in variability of model performance achieved by ensemble methods is therefore important for ensuring that our predictions are reliable under a variety of conditions.
 
-[[TODO: Discuss how varying some of these regularization parameters can give the simpler EW and dEM models??  Or ignore?  Or defer to supplement?]]
+The different ensemble specifications we considered had similar average performance over the test phase, but again there were differences among the ensemble models in terms of their consistency across different seasons.  For all three prediction targets, worst-case log scores and the worst-case model ranking across the five test seasons were slightly lower for the \textbf{CW} model than they were for the \textbf{FW-reg-w} model.  There were not appreciable or consistent differences among the feature-weighted models using different feature sets, indicating that including model uncertainty and recent observations of disease incidence did not add much more information about relative model performance than was available from the week of the season in which predictions were generated.  The equally weighted ensemble model had lower mean log scores than the \textbf{CW} and \textbf{FW-reg-w} ensembles for all three prediction targets, but had better worst-case performance than the other ensembles for predictions of peak timing.  Synthesizing these observations, no ensemble was uniformly better than the others, but the \textbf{FW-reg-w} method had good average and worst-case performance across all test phase seasons and prediction targets.
+
+The feature-weighted ensemble models presented in this article use a novel scheme to estimate feature-dependent model weights that sum to 1 and are therefore suitable for use in combining predictive distributions.  This general method could be applied to combine distribution estimates in any context, and is not limited to time-series or infectious disease applications.
+
+In future applications to infectious disease, it may be possible to use this feature-weighed stacking framework could be used to answer epidemiologically relevant questions.  For example, there may be circumstances when certain models contain information that substantially improve predictions.  A feature-weighted ensemble scheme might be able to identify situations where models including weather or mechanistic aspects capture something about the disease process that other models do not, thereby yielding insights into the disease process.  [[TODO: Nick, can you fix this paragraph?  As is, it feels like nebulous conjecture that doesn't contribute much]]
+
+Infectious disease predictions are only useful to public health officials if they are communicated effectively in real time.  Predictions from an early version of the \textbf{FW-reg-w} model were updated weekly during the 2016/2017 influenza season and disseminated through an interactive website at https://reichlab.github.io/flusight/ FluSight.  [[TODO: this information is duplicated in the software and code section above -- pick one place]]
+
+<!--[[TODO: Discuss how varying some of these regularization parameters can give the simpler EW and dEM models??  Or ignore?  Or defer to supplement?]]-->
 
 ### Limitations
 
- - illustration only includes simple models and simple features
+A central challenge of working with infectious disease data sets is the limited number of years of data available for model estimation and evaluation.  We have used approximately one fourth of our data set for model evaluation, which left us with only 14 seasons of training data and 5 seasons of testing data.  Additionally, we had fewer than 14 seasons of leave-one-season-out predictions to use in estimating the model weighting functions for the \textbf{FW} ensemble methods because the \textbf{SARIMA} model required unobserved seasonally lagged incidence to make predictions for the first few seasons in the training phase.  This small sample size may have affected our ability to estimate the weighting functions.  We also have a small effective sample size for detecting differences in average model performance in the test phase because of the high degree of correlation in model log scores for the same prediction target in different weeks and regions within the same season.
+
+Another limitation of this work is the small selection of component models used.  Theoretical results and applications have demonstrated that ensemble methods are most effective when using a diverse set of component models ([[TODO: cite something]]).  In our study, the \textbf{KCDE} and \textbf{SARIMA} models are similar in that they both use seasonal terms and observations of recent incidence to (though we note that these two models tended to perform well in different seasons, as illustrated in Figure \ref{fig:test_phase_log_scores_heatmap}).  Increased component model diversity could yield improved ensemble performance; this could be achieved either through inclusion of different model structures (such as agent-based or mechanistic models) or different covariates (such as spatial effects or weather).
+
+Our exploration of feature-weighted ensembles is also limited by the relatively restricted feature sets we used for the weighting functions.  We selected a few features based on exploratory analysis of the training phase results, and set all ensemble model formulations before obtaining any predictions for the test phase.  It is possible that other weighting features not considered in this work may be more informative than those we have used.  Some ideas for weighting covariates to use in future work include the largest incidence so far this season; the onset threshold; alternative summaries of the predictive distributions from the component models such as the probability at the mode or the modal value; the predominant flu strain; or the distribution of incidence in age groups.
 
 # References
  
