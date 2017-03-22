@@ -80,6 +80,7 @@ We set out to determine whether ensemble methods could use this information abou
 While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking. 
 In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained. 
 Then, in a second stage, a stacking model is trained using the cross-validated performance measures to learn how to optimally combine predictive densities from the component models.
+The specific implementations of stacking that we use obtain the final predictive density as a weighted sum of the component predictive densities, where the weights may depend on covariates.
 We refer to this approach generally as a ''weighted density ensemble'' approach to prediction.
 
 Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our ensemble models to predict several attributes of the influenza season at each week during the season.
@@ -321,11 +322,11 @@ Although the aggregate performance of these models is quite similar, some differ
 
 In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.  Within each season, the component models are often among either the best-performing or the worst-performing models.  For example, the \textbf{SARIMA} model ranks first for predictions of peak timing in four out of five seasons and last in the fifth season, but ranks last for predictions of peak incidence in four out of five seasons and first in the remaining season.  Similar trends, though slightly less extreme, also hold for \textbf{KDE} and \textbf{KCDE}.
 
-The ensemble methods have more stable performance across the test phase seasons.  Only the \textbf{FW-reg-w} was among the top half of models in all seasons for predictions of onset timing; only \textbf{EW} and \textbf{FW-reg-w} were among the top half of models in all seasons for predictions of peak timing; and only \textbf{FW-reg-wu} and \textbf{FW-reg-wui} was among the top half of models in all seasons for predictions of peak incidence.
+The ensemble methods have more stable performance across the test phase seasons.  Only the \textbf{FW-reg-w} was among the top half of models in all seasons for predictions of onset timing; only \textbf{EW} and \textbf{FW-reg-w} were among the top half of models in all seasons for predictions of peak timing; and only \textbf{FW-reg-wu} and \textbf{FW-reg-wui} were among the top half of models in all seasons for predictions of peak incidence.
 
 Model consistency can also be measured with the minimum of the log scores achieved across the test phase seasons.  Here again the ensemble methods outperform the component models.  In particular, worst-case performance of the \textbf{EW} and regularized \textbf{FW} methods is in the top half of all methods for all three prediction targets.
 
-For example, consider predictions of peak timing, which could be used to plan vaccine production and distribution ([[TODO: cite something?]]).  Among the component models we considered, \textbf{SARIMA} had the highest mean log score across the test phase, and was the best model in four out of five test-phase seasons.  However, it had the worst performance of all models we considered in the 2015/2016 season.  The \textbf{EW} and \textbf{FW-reg-w} ensembles achieved only slightly lower average log scores than \textbf{SARIMA} overall, were among the best-performing methods in all five test seasons, and assigned about 60 to 70 percent more probability to the eventually realized peak week than \textbf{SARIMA} in predictions made during the season that \textbf{SARIMA} struggled.
+For example, consider predictions of peak timing, which could be used to plan vaccine production and distribution ([[TODO: cite something?]]).  Among the component models we considered, \textbf{SARIMA} had the highest mean log score across the test phase, and was the best model in four out of five test-phase seasons.  However, it had the worst performance of all models we considered in the 2015/2016 season.  The \textbf{EW} and \textbf{FW-reg-w} ensembles achieved only slightly lower average log scores than \textbf{SARIMA} overall, were among the best-performing methods in all five test seasons, and assigned an average of about 60 to 70 percent more probability to the eventually realized peak week than \textbf{SARIMA} in predictions made during the season that \textbf{SARIMA} struggled.
 
 ### Regularization improves feature-weighted ensemble models
 
@@ -363,8 +364,8 @@ ggplot() +
   scale_x_date() +
   xlab("Time") +
   ylab("Weighted Proportion of Doctor's Office Visits\nwith Influenza-like Illness\n") +
-  ggtitle("Influenza Data by Region")
-#  theme_bw(base_size = 11)
+#  ggtitle("Influenza Data by Region")
+  theme_bw(base_size = 11)
 ```
 
 <!--#### Figure: 9 panel grid (3 component models x 3 metrics) showing a solid line for each region that represents the average log score across all seasons \label{fig:log-scores}-->
@@ -652,7 +653,7 @@ p_onset_scores <- ggplot() +
       linetype = Model),
     size = 1.5,
     data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_fill_manual("Component\nModel", values = color_palette) +
   scale_colour_manual("Component\nModel", values = color_palette) +
   scale_linetype("Component\nModel") +
@@ -674,7 +675,7 @@ p_onset_weights <- ggplot() +
       size = ensemble_method
     ),
     data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_linetype("Model") +
   scale_colour_manual("Model", values = color_palette) +
   scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
@@ -685,7 +686,7 @@ p_onset_weights <- ggplot() +
   theme_bw(base_size = 11) +
   theme(axis.title.y = element_blank(),
     legend.position = "none",
-    plot.margin = unit(c(3, 6, 0, 6), "pt"))
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
 
 component_legend <- get_legend_grob(p_onset_scores)
 p_onset_scores <- p_onset_scores +
@@ -764,7 +765,7 @@ p_peak_week_scores <- ggplot() +
       linetype = Model),
     size = 1.5,
     data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_fill_manual("Component\nModel", values = color_palette) +
   scale_colour_manual("Component\nModel", values = color_palette) +
   scale_linetype("Component\nModel") +
@@ -787,7 +788,7 @@ p_peak_week_weights <- ggplot() +
       size = ensemble_method
     ),
     data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_linetype("Model") +
   scale_colour_manual("Model", values = color_palette) +
   scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
@@ -798,7 +799,7 @@ p_peak_week_weights <- ggplot() +
   theme_bw(base_size = 11) +
   theme(axis.title.y = element_blank(),
     legend.position = "none",
-    plot.margin = unit(c(3, 6, 0, 6), "pt"))
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
 
 
 
@@ -864,7 +865,7 @@ p_peak_inc_scores <- ggplot() +
       linetype = Model),
     size = 1.5,
     data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_fill_manual("Component\nModel", values = color_palette) +
   scale_colour_manual("Component\nModel", values = color_palette) +
   scale_linetype("Component\nModel") +
@@ -887,7 +888,7 @@ p_peak_inc_weights <- ggplot() +
       size = ensemble_method
     ),
     data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
-  facet_wrap( ~ quantity) +
+#  facet_wrap( ~ quantity) +
   scale_linetype("Model") +
   scale_colour_manual("Model", values = color_palette) +
   scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
@@ -898,7 +899,7 @@ p_peak_inc_weights <- ggplot() +
   theme_bw(base_size = 11) +
   theme(axis.title.y = element_blank(),
     legend.position = "none",
-    plot.margin = unit(c(3, 6, 0, 6), "pt"))
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
 ```
 
 ```{r log_scores_and_weights_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:example-weights}Example of component model weights from the \\textbf{CW} and \\textbf{FW-reg-w} models for National predictions.  The upper plot within each panel shows mean, minimum, and maximum log scores achieved by each component model for predictions of the given prediction target at the national level in each week of the season, summarizing across all seasons in the training phase when all three component models produced predictions.  The lower plot within each panel shows model weights from the \\textbf{CW} and \\textbf{FW-reg-w} ensemble methods at each week in the season."}
@@ -906,65 +907,62 @@ grid.newpage()
 blank_height <- 0
 rel_height_lower <- 1.35
 pushViewport(viewport(layout =
-    grid.layout(nrow = 12, ncol = 3,
+    grid.layout(nrow = 11, ncol = 3,
       heights = unit(
-        c(1.5, 1, 1, rel_height_lower, blank_height, 1, 1, rel_height_lower, blank_height, 1, 1, rel_height_lower),
-        rep(c("lines", "lines", "null", "null"), 3)),
+        c(1, 1, rel_height_lower, blank_height, 1, 1, rel_height_lower, blank_height, 1, 1, rel_height_lower),
+        rep(c("lines", "lines", "null", "null"), 3)[2:12]),
       widths = unit(c(1, 4, 1), c("lines", "null", "null")))))
-grid.text("Component Model Weights and Training Phase Log Scores - National",
-  gp = gpar(fontsize = 14),
-  vp = viewport(layout.pos.row = 1, layout.pos.col = 1:3))
 grid.text("A: Onset Timing",
   just = "left",
   gp = gpar(fontsize = 12),
-  vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
 grid.text("B: Peak Timing",
   just = "left",
   gp = gpar(fontsize = 12),
-  vp = viewport(layout.pos.row = 6, layout.pos.col = 1))
+  vp = viewport(layout.pos.row = 5, layout.pos.col = 1))
 grid.text("C: Peak Incidence",
   just = "left",
   gp = gpar(fontsize = 12),
-  vp = viewport(layout.pos.row = 10, layout.pos.col = 1))
+  vp = viewport(layout.pos.row = 9, layout.pos.col = 1))
 
 ls_str <- "Log Score   "
-mw_str <- "  Model Weight"
+mw_str <- "       Model Weight"
 grid.text(ls_str,
+  rot = 90,
+  gp = gpar(fontsize = 10),
+  vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+grid.text(mw_str,
   rot = 90,
   gp = gpar(fontsize = 10),
   vp = viewport(layout.pos.row = 3, layout.pos.col = 1))
-grid.text(mw_str,
+grid.text(ls_str,
   rot = 90,
   gp = gpar(fontsize = 10),
-  vp = viewport(layout.pos.row = 4, layout.pos.col = 1))
-grid.text(ls_str,
+  vp = viewport(layout.pos.row = 6, layout.pos.col = 1))
+grid.text(mw_str,
   rot = 90,
   gp = gpar(fontsize = 10),
   vp = viewport(layout.pos.row = 7, layout.pos.col = 1))
-grid.text(mw_str,
-  rot = 90,
-  gp = gpar(fontsize = 10),
-  vp = viewport(layout.pos.row = 8, layout.pos.col = 1))
 grid.text(ls_str,
   rot = 90,
   gp = gpar(fontsize = 10),
-  vp = viewport(layout.pos.row = 11, layout.pos.col = 1))
+  vp = viewport(layout.pos.row = 10, layout.pos.col = 1))
 grid.text(mw_str,
   rot = 90,
   gp = gpar(fontsize = 10),
-  vp = viewport(layout.pos.row = 12, layout.pos.col = 1))
+  vp = viewport(layout.pos.row = 11, layout.pos.col = 1))
 
-print(p_onset_scores, vp = viewport(layout.pos.row = 3, layout.pos.col = 2))
-print(p_onset_weights, vp = viewport(layout.pos.row = 4, layout.pos.col = 2))
-print(p_peak_week_scores, vp = viewport(layout.pos.row = 7, layout.pos.col = 2))
-print(p_peak_week_weights, vp = viewport(layout.pos.row = 8, layout.pos.col = 2))
-print(p_peak_inc_scores, vp = viewport(layout.pos.row = 11, layout.pos.col = 2))
-print(p_peak_inc_weights, vp = viewport(layout.pos.row = 12, layout.pos.col = 2))
+print(p_onset_scores, vp = viewport(layout.pos.row = 2, layout.pos.col = 2))
+print(p_onset_weights, vp = viewport(layout.pos.row = 3, layout.pos.col = 2))
+print(p_peak_week_scores, vp = viewport(layout.pos.row = 6, layout.pos.col = 2))
+print(p_peak_week_weights, vp = viewport(layout.pos.row = 7, layout.pos.col = 2))
+print(p_peak_inc_scores, vp = viewport(layout.pos.row = 10, layout.pos.col = 2))
+print(p_peak_inc_weights, vp = viewport(layout.pos.row = 11, layout.pos.col = 2))
 
-pushViewport(viewport(layout.pos.row = 7, layout.pos.col = 3))
+pushViewport(viewport(layout.pos.row = 6, layout.pos.col = 3))
 grid.draw(component_legend)
 upViewport()
-pushViewport(viewport(layout.pos.row = 8, layout.pos.col = 3))
+pushViewport(viewport(layout.pos.row = 7, layout.pos.col = 3))
 grid.draw(ensemble_legend)
 upViewport()
 ```
@@ -1234,7 +1232,7 @@ This reduction in variability of model performance achieved by ensemble methods 
 
 The different ensemble specifications we considered had similar average performance over the test phase, when all models were making prospective, out-of-sample predictions. 
 However, there were differences among the ensemble models in terms of their consistency across different seasons. 
-For all three prediction targets, worst-case log scores and the worst-case model ranking across the five test seasons were slightly lower for the constant-weight (\textbf{CW}) model than they were for the ensembles with smoothed model weights varying by week (\textbf{FW-reg-w}). 
+For all three prediction targets, worst-case log scores and the worst-case model ranking across the five test seasons were slightly lower for the constant-weight (\textbf{CW}) ensemble than they were for the ensemble with smoothed model weights varying by week (\textbf{FW-reg-w}).
 There were not appreciable or consistent differences among the feature-weighted models using different feature sets, indicating that including model uncertainty and recent observations of disease incidence did not add much more information about relative model performance than was available from the week of the season in which predictions were generated. 
 The equally weighted ensemble model had lower mean log scores than the \textbf{CW} and \textbf{FW-reg-w} ensembles for all three prediction targets, but had better worst-case performance than the other ensembles for predictions of peak timing. 
 Synthesizing these observations, no ensemble was uniformly better than the others, but the \textbf{FW-reg-w} method had good average and worst-case performance across all test phase seasons and prediction targets.
