@@ -75,13 +75,18 @@ We observed in previous research that early in the U.S. influenza season, simple
 However, in the middle of the season, the time-series models showed improved accuracy. 
 We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
-[[TODO: Insert 1-paragraph ensemble methods literature review here.]]
+A large number of ensemble methods have been developed for a diverse array of tasks including regression [[TODO: cite]], classification [[TODO: cite]], and density estimation[[TODO: cite]].  These methods are broadly similar in that they combine results from multiple "base" or "component" models.  However, many details differ between different ensemble methods.  We will only briefly outline the most relevant literature here; see [[TODO: cite something]] for a more comprehensive review.
+
+Several previous articles have implemented ensemble methods for density estimation.  The most common strategy for this application obtains the final density estimate as a linear combination of density estimates from multiple component models that are estimated separately (cite Smyth and Wolpert; Ganti and Gray; Rigollet and Tsybakov).  Typically, the weights are restricted to be non-negative and sum to 1 so that the final density estimate integrates to 1.  However, ensemble approaches to density estimation via boosting have also been developed (cite ***).
+
+In structured prediction settings such as time series forecasting, ensemble methods may benefit from taking advantage of the data structure.  For example, it may be the case that different models offer a better representation of the data at different points in time.  A common idea in these settings is to use model weights that change over time.  For instance, model weights may vary as a function of how well each model did in recent predictions (Herbster and Warmuth) or by using a more formal graphical structure such as a hidden Markov model to track which component model is most likely to have generated new observations as they arise over time (Yamanishi and Maruyama, Cortes et al).  It is also possible to combine the component models with weights that depend on observed covariates or features (cite fwls and others).  For example, in an ensemble for a user recommendation system, Jahrer et al allowed model weights to depend on a variety of features including the time that a user submitted a rating.
 
 While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking. 
 In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained. 
 Then, in a second stage, a stacking model is trained using the cross-validated performance measures to learn how to optimally combine predictive densities from the component models.
 The specific implementations of stacking that we use obtain the final predictive density as a weighted sum of the component predictive densities, where the weights may depend on covariates.
 We refer to this approach generally as a ''weighted density ensemble'' approach to prediction.
+Other approaches are also possible; for example, in boosting, the component models are estimated sequentially, with results from earlier models affecting estimation of later models.
 
 Using seasonal influenza outbreaks in the US health regions as a case-study, we developed and applied our ensemble models to predict several attributes of the influenza season at each week during the season.
 By illustrating the utility of these approaches to ensemble forecasting in a setting with complex population dynamics, this work highlights the importance of continued innovation in ensemble methodology.
