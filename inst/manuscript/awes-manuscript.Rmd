@@ -35,7 +35,6 @@ library(ggplot2)
 library(grid)
 library(awes)
 library(nlme)
-library(multcomp)
 library(mosaic)
 library(gridExtra)
 library(cowplot)
@@ -43,7 +42,15 @@ library(cowplot)
 
 # Abstract
 
-Accurate and reliable predictions of infectious disease dynamics would be valuable to public health organizations planning interventions.  A great variety of models have been developed for this task, using different model structures and covariates.   Experience has shown that these different models have different performance characteristics; some tend to do better or worse in different seasons or at different points within a season.  In this work we explore a range of ensemble methods that obtain the predictive distribution for a given quantity as a weighted sum of the predictive distributions from three "component" models.  In the simplest case, equal weight is assigned to each component model; in the most complex case, the weights vary with the region, prediction target, week of the season when the predictions are made, a measure of component model uncertainty, and recent observations of disease incidence.  In an application to predicting measures of influenza season timing and severity, we find that these ensemble methods have overall performance that is similar to the best of the component models, but offer more stable performance across different seasons than the component models.  Ensemble methods offer the potential to yield more reliable predictions to public health decision makers.
+Accurate and reliable predictions of infectious disease dynamics would be valuable to public health organizations planning interventions to decrease or prevent disease transmission.  
+A great variety of models have been developed for this task, using different model structures and covariates. Experience has shown that the performance of these models varies; some tend to do better or worse in different seasons or at different points within a season. 
+Ensemble methods combine predictions from multiple models to obtain a single prediction that leverages the strengths of each model.
+We considered a range of ensemble methods that form a predictive density for a target of interest as a weighted sum of the predictive densities from component models. 
+In the simplest case, equal weight is assigned to each component model; in the most complex case, the weights vary with the region, prediction target, week of the season when the predictions are made, a measure of component model uncertainty, and recent observations of disease incidence. 
+We applied these methods to predict measures of influenza season timing and severity in the United States, both at the national and regional levels, using three component models. 
+We trained the models on retrospective predictions from 14 seasons (1997/1998 - 2010/2011) and evaluated each model's prospective, out-of-sample performance in the five subsequent influenza seasons.
+In this test phase, the ensemble methods showed overall performance that was similar to the best of the component models, but offered more consistent performance across seasons than the component models. 
+Ensemble methods offer the potential to deliver more reliable predictions to public health decision makers.
 
 # Introduction
 
@@ -53,12 +60,12 @@ In recent years, these "ensemble" forecasting approaches frequently have been am
 
 Ensembles are a natural choice for noisy, complex, and interdependent systems that evolve over time. 
 In these settings, no one model is likely to be able to capture and predict the full set of complex relationships that drive future observations from a particular system of interest. 
-Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes.
-In this work, we develop and compare a range of ensemble methods for combining predictive distributions in order to explore the benefits ensemble methods of varying complexity may offer for improving the quality of predictions.
+Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system and, when combined, represent a nearly complete range of possible outcomes.
+In this work, we develop and compare a collection of ensemble methods for combining predictive densities. 
+This enables us to quantify the improvement in predictions achieved by using ensemble methods with varying levels of complexity.
 
-To illustrate these ensemble methods, we present time-series forecasts for infectious disease, specifically for influenza in the U.S.
-For millenia, infectious diseases have been one of the central existential threats to humankind.
-The international significance of emerging epidemic threats in recent decades has also increased public awareness of the importance of understanding and being able to predict infectious disease dynamics.
+To illustrate these ensemble methods, we present time-series forecasts for infectious disease, specifically for influenza in the United States.
+The international significance of emerging epidemic threats in recent decades has increased public awareness of the importance of understanding and being able to predict infectious disease dynamics.
 With the revolution in data-driven science also occurring in the past few decades, there is now an increased focus on and hope for using statistics to inform public health policy and decision-making in ways that could mitigate the impact of future outbreaks. 
 Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies" \citep{cdc-decisions-2016}.
 
@@ -67,14 +74,14 @@ We observed in previous research that early in the U.S. influenza season, simple
 However, in the middle of the season, the time-series models showed improved accuracy. 
 We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
-A large number of ensemble methods have been developed for a diverse array of tasks including regression, classification, and density estimation.  These methods are broadly similar in that they combine results from multiple "base" or "component" models.  However, many details differ between different ensemble methods.  We suggest \cite{polikar2006ensemble} for a review of ensemble methods; many of these methods are also discussed in detail in \cite{Hastie2011}.
+A large number of ensemble methods have been developed for a diverse array of tasks including regression, classification, and density estimation.  These methods are broadly similar in that they combine results from multiple "base" or "component" models.  However, details differ between ensemble methods.  We suggest \cite{polikar2006ensemble} for a review of ensemble methods; many of these are also discussed in detail in \cite{Hastie2011}.
 
 While there are many different methods for combining models, all ensemble models discussed in this paper use an approach called stacking. 
 In this approach, each of the component models is trained separately in a first stage, and cross-validated measures of performance of those component models are obtained. 
 Then, in a second stage, a stacking model is trained using the cross-validated performance measures to learn how to optimally combine predictive densities from the component models.
 The specific implementations of stacking that we use obtain the final predictive density as a weighted sum of the component predictive densities, where the weights may depend on covariates.
 We refer to this approach generally as a ''weighted density ensemble'' approach to prediction.
-Several variations on this strategy have been explored in the literature previously \citep{smyth1999stackingDensityEstimators,  rigollet2007linearconvexaggregationdensity, ganti2011cake}.  However, other ensemble methods for density estimation have also been developed.  For example, \citep{rosset2002boosting} develop a boosting method in which the component density estimates are estimated sequentially, with results from earlier models affecting estimation of later models.
+Several variations on this strategy have been explored in the literature previously \citep{smyth1999stackingDensityEstimators,  rigollet2007linearconvexaggregationdensity, ganti2011cake}.  However, other ensemble methods for density estimation have also been developed.  For example, \citep{rosset2002boosting} develop a boosting method in which the component models are estimated sequentially, with results from earlier models affecting estimation of later models.
 
 In structured prediction settings such as time series forecasting, ensemble methods may benefit from taking advantage of the data structure.  For example, it may be the case that different models offer a better representation of the data at different points in time.  A common idea in these settings is to use model weights that change over time.  For instance, model weights may vary as a function of how well each model did in recent predictions \citep{herbster1998tracking} or by using a more formal graphical structure such as a hidden Markov model to track which component model is most likely to have generated new observations as they arise over time \citep{yamanishi2007dynamicmodelselection, cortes2014ensembleStructuredPrediction}.  It is also possible to combine the component models with weights that depend on observed covariates or features \citep{Sill2009}.  For example, in an ensemble for a user recommendation system, \cite{jahrer2010Netflix} allowed model weights to depend on a variety of features including the time that a user submitted a rating.
 
@@ -94,7 +101,7 @@ By illustrating the utility of these approaches to ensemble forecasting in a set
 
 # Methods
 
-This paper presents a comparison of methods for determining weights for weighted density ensembles, applied to forecasting specific features of influenza seasons in the U.S. 
+This paper presents a comparison of methods for determining weights for weighted density ensembles, applied to forecasting specific features of influenza seasons in the US. 
 First, we present a description of the influenza data we use in our application and the prediction targets.
 Next, we discuss the three component models utilized by the ensemble framework.
 We then turn to the ensemble framework itself, describing the different ensemble model specifications used.
@@ -120,13 +127,13 @@ For onset week, the bins are represented by integer values for each possible sea
 For peak week, the bins are represented by integer values for each possible season week.
 For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. 
 Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 13.05), [13.05, $\infty$).  
-These bins were used in the 2016-2017 influenza prediction contest run by the CDC [[cite something]].
+These bins were used in the 2016-2017 influenza prediction contest run by the CDC [[TODO: cite something]].
 
 We measure the accuracy of predictive distributions using the log score.
 The log score is a proper scoring rule \citep{Gneiting2007}, calculated in our setting as the natural log of the probability assigned to the bin containing the true observation.
 Proper scoring rules are preferred for measuring the quality of predictive distributions because the expected score is optimized by the true probabilty distribution.
 We note that for peak week, in some region-seasons the same peak incidence was achieved in multiple weeks (after rounding to one decimal place).
-In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC [[cite something]].
+In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC [[TODO: cite something]].
 
 ## Component models
 We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence.[[Cite Evan's paper on arxiv!]]  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
