@@ -53,7 +53,7 @@ Ensembles are a natural choice for noisy, complex, and interdependent systems th
 In these settings, no one model is likely to be able to capture and predict the full set of complex relationships that drive future observations from a particular system of interest. 
 Instead "specialist" or "component" models can be relied on to capture distinct features or signals from a system which, when combined, represent a nearly complete range of possible outcomes.
 
-Using component models that generate predictive densities for outcomes of interest, we have implemented a series of ensembles using different methods for choosing the weights for each model.  
+Using component models that generate predictive densities for outcomes of interest, we have implemented a series of ensembles using different methods for choosing the weights for each model. 
 Specifically, we compare three different approaches. 
 The first approach simply takes an equally weighted average of all models.
 The second approach estimates constant but not necessarily equal weights for each model.
