@@ -13,6 +13,7 @@ header-includes:
    - \usepackage{lineno}\linenumbers
    - \usepackage{booktabs}
    - \usepackage{xcolor,colortbl}
+   - \usepackage[nomarkers, nolists]{endfloat}
    - \renewcommand{\familydefault}{cmss}
    - \definecolor{gray1}{rgb}{0.01,0.01,0.01}
    - \definecolor{gray2}{rgb}{0.2,0.2,0.2}
@@ -42,6 +43,7 @@ library(cowplot)
 
 # Abstract
 
+Accurate and reliable predictions of infectious disease dynamics would be valuable to public health organizations planning interventions.  A great variety of models have been developed for this task, using different model structures and covariates.   Experience has shown that these different models have different performance characteristics; some tend to do better or worse in different seasons or at different points within a season.  In this work we explore a range of ensemble methods that obtain the predictive distribution for a given quantity as a weighted sum of the predictive distributions from three "component" models.  In the simplest case, equal weight is assigned to each component model; in the most complex case, the weights vary with the region, prediction target, week of the season when the predictions are made, a measure of component model uncertainty, and recent observations of disease incidence.  In an application to predicting measures of influenza season timing and severity, we find that these ensemble methods have overall performance that is similar to the best of the component models, but offer more stable performance across different seasons than the component models.  Ensemble methods offer the potential to yield more reliable predictions to public health decision makers.
 
 # Introduction
 
@@ -1030,7 +1032,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_scores_heatmap}Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred."}
+```{r test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_scores_heatmap}Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred.  Averages are taken across all regions."}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
