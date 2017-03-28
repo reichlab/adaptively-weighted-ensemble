@@ -42,7 +42,7 @@ library(cowplot)
 
 # Abstract
 
-Accurate and reliable predictions of infectious disease dynamics can be valuable to public health organizations that plan interventions to decrease or prevent disease transmission. 
+Accurate and reliable predictions of infectious disease dynamics can be valuable to public health organizations that plan interventions to decrease or prevent disease transmission.
 A great variety of models have been developed for this task, using different model structures, covariates, and targets for prediction.
 Experience has shown that the performance of these models varies; some tend to do better or worse in different seasons or at different points within a season. 
 Ensemble methods combine multiple models to obtain a single prediction that leverages the strengths of each model.
@@ -143,7 +143,7 @@ We used three component models to generate probabilistic predictions of the thre
 
 ### Kernel Density Estimation (KDE)
 The simplest of the component models uses kernel density estimation \citep{silverman1986density} to estimate a distribution for each target based on observed values of that target in previous seasons within the region of interest.
-We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2016} to estimate the bandwidth parameter.
+We used Gaussian kernels and the default KDE settings from the `density` function in the `stats` package for R \citep{Rcore2015} to estimate the bandwidth parameter.
 For the peak incidence target, we fit to log-transformed observations of historical peak incidence.
 For the onset week prediction target, we estimated the probability of no onset as the proportion of region-seasons in all regions in the training phase where no week in the season met the criteria for being a season onset.
 
@@ -193,14 +193,14 @@ We then describe our proposed weighted density ensemble model specifications in 
 ### Overview of ensemble models
 
 A single set of notation can be used to describe all of the ensemble frameworks implemented here.
-Let $f_m(y|\bx^{(m)})$ denote the predictive density from component model $m$ for the value of the scalar random variable $Y$ conditional on observed variables $\bx^{(m)}$.  For example, $Y$ could represent the peak incidence for a given season and region.
-In the context of time series predictions, the covariate vector $\bx^{(m)}$ may include time-varying covariates such as the week at which the prediction is made or lagged incidence; we suppress that dependence on time in our notation for the sake of simplicity.  The superscript $^{(m)}$ reflects the fact that each component model may use a different set of covariates.
+Let $f_m(y_t|\bx_t^{(m)})$ denote the predictive density from component model $m$ for the value of the scalar random variable $Y_t$ conditional on observed variables $\bx_t^{(m)}$.  Observations of disease incidence are reported weekly in our data set, so $t$ indexes the week of the season.  The variable $Y_t$ could for example represent the peak incidence for a given season and region; in our application to predicting seasonal quantities, the same outcome $y_t$ will be realized for all weeks within a given season.
+In the context of time series predictions, the covariate vector $\bx_t^{(m)}$ may include time-varying covariates such as the week at which the prediction is made or lagged incidence.  The superscript $^{(m)}$ reflects the fact that each component model may use a different set of covariates.
 
-The combined predictive density $f(y|\bx)$ for a particular target can be written as 
+The combined predictive density $f(y_t|\bx_t)$ for a particular target can be written as 
 \begin{equation}
-f(y|\bx) = \sum_{m = 1}^M \pi_m(\bx) f_m(y|\bx^{(m)}). \label{eqn:EnsembleModel} 
+f(y_t|\bx_t) = \sum_{m = 1}^M \pi_m(\bx_t) f_m(y_t|\bx_t^{(m)}). \label{eqn:EnsembleModel} 
 \end{equation}
-In Equation \eqref{eqn:EnsembleModel} the $\pi_m$ are the model weights, which are allowed to vary as a function of observed features in $\bx$.  We define $\bx$ to be a vector of all observed quantities that are used by any of the component models or in calculating the model weights.  In order to guarantee that $f(y|\bx)$ is a probability distribution we require that $\sum_{m = 1}^M \pi_m(\bx) = 1$ for all $\bx$.
+In Equation \eqref{eqn:EnsembleModel} the $\pi_m$ are the model weights, which are allowed to vary as a function of observed features in $\bx_t$.  We define $\bx_t$ to be a vector of all observed quantities that are used by any of the component models or in calculating the model weights.  In order to guarantee that $f(y_t|\bx_t)$ is a probability distribution we require that $\sum_{m = 1}^M \pi_m(\bx_t) = 1$ for all $\bx_t$.
 Fig \ref{fig:stacking-concept} illustrates the concept of stacking the predictive densities for each component model.
 
 In the following subsection, we propose a framework for estimating _feature-dependent weights_ for a stacked ensemble model. 
@@ -215,13 +215,13 @@ These features were chosen prior to and not changed after implementing test-phas
 
 We used four distinct methodologies to define weights to use for the stacking models:
 
-1. Equal Weights (\textbf{EW}): $\pi_m(\bx) = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bx$.
+1. Equal Weights (\textbf{EW}): $\pi_m(\bx_t) = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bx_t$.
 
-2. Constant model weights via degenerate EM (\textbf{dEM}): $\pi_m(\bx) = c_m$, a constant where $\sum_{m=1}^M c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization (dEM) algorithm \citep{Lin2004}.  A separate set of weights is estimated for each region and prediction target.
+2. Constant model weights via degenerate EM (\textbf{dEM}): $\pi_m(\bx_t) = c_m$, a constant where $\sum_{m=1}^M c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization (dEM) algorithm \citep{Lin2004}.  A separate set of weights is estimated for each region and prediction target.
 
-3. Feature-weighted (\textbf{FW}): $\pi_m(\bx)$ depends on features including week of the season and model uncertainty for the KCDE and SARIMA models.  A separate set of weighting functions is estimated for each region and prediction target.
+3. Feature-weighted (\textbf{FW}): $\pi_m(\bx_t)$ depends on features including week of the season and model uncertainty for the KCDE and SARIMA models.  A separate set of weighting functions is estimated for each region and prediction target.
 
-4. Feature-weighted with regularization: $\pi_m(\bx)$ depends on features, but with regularization discouraging the weights from taking extreme values or from varying too quickly as a function of $\bx$.  A separate set of weighting functions is estimated for each region and prediction target.  We fit three variations on this ensemble model, using different sets of features:
+4. Feature-weighted with regularization: $\pi_m(\bx_t)$ depends on features, but with regularization discouraging the weights from taking extreme values or from varying too quickly as a function of $\bx_t$.  A separate set of weighting functions is estimated for each region and prediction target.  We fit three variations on this ensemble model, using different sets of features:
     a. (\textbf{FW-reg-w}) week of the season;
     b. (\textbf{FW-reg-wu}) week of the season and model uncertainty for the KCDE and SARIMA models;
     c. (\textbf{FW-reg-wui}) week of the season, model uncertainty for the KCDE and SARIMA models, and incidence (wILI) in the most recent week.
@@ -254,38 +254,42 @@ In total, we evaluate 9 models in 11 regions over 5 years and 3 targets of inter
 
 ## Feature-weighted stacking framework
 
-In this section we introduce the particular specification of the parameter weight functions $\pi_m(\bx)$ that we use and discuss estimation.
+In this section we introduce the particular specification of the parameter weight functions $\pi_m(\bx_t)$ that we use for the \textbf{FW}, \textbf{FW-reg-w}, \textbf{FW-reg-wu}, and \textbf{FW-reg-wui} models and discuss estimation.
 
-In order to ensure that the the $\pi_m$ are non-negative and sum to 1 for all values of $\bx$, we parameterize them in terms of the softmax transformation of real-valued latent functions $\rho_m$:  
+In order to ensure that the the $\pi_m$ are non-negative and sum to 1 for all values of $\bx_t$, we parameterize them in terms of the softmax transformation of real-valued latent functions $\rho_m$
 \begin{equation}
-\pi_{m}(\bx) = \frac{\exp\{\rho_m(\bx)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bx)\}}.  \label{eqn:PiSoftmaxRho} 
+\pi_{m}(\bx_t) = \frac{\exp\{\rho_m(\bx_t)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bx_t)\}}.  \label{eqn:PiSoftmaxRho} 
 \end{equation}
-For a pair of models $l, m \in \{1, ..., M\}$, $\rho_l(\bx) > \rho_m(\bx)$ indicates that model $l$ has more weight than model $m$ for predictions at the given value of $\bx$.
-
-The functions $\rho_m(\bx)$ could be parameterized and estimated using many different techniques, such as a linear specification in the features, splines, or so on.  We chose to estimate the functions $\rho_m(\bx)$ using gradient tree boosting.
+For a pair of models $l, m \in \{1, ..., M\}$, $\rho_l(\bx_t) > \rho_m(\bx_t)$ indicates that model $l$ has more weight than model $m$ for predictions at the given value of $\bx_t$.
+The functions $\rho_m(\bx_t)$ could be parameterized and estimated using many different techniques, such as a linear specification in the features, splines, or so on.  We chose to estimate the functions $\rho_m(\bx)$ using gradient tree boosting.
 
 Gradient tree boosting uses a forward stagewise additive modeling algorithm to iteratively and incrementally construct a series of regression trees that, when added together, create a function designed to minimize a given loss function. 
-In our application, the algorithm builds up the $\rho_m(\bx)$ that minimize the negative cross-validated log-score of the stacked prediction $f(y|\bX)$.  We have used the `xgb.train` function in the `xgboost` package for `R` to perform this estimation.\citep{xgboost}
+In our application, the algorithm builds up the $\rho_m(\bx_t)$ that minimize the negative log-score of the stacked predictions $f(y_t|\bx_t)$ across all times $t$:
+\begin{align}
+L\{\brho(\bx_t)\} &= - \sum_{t} \log\{f(y_t|\bx_t)\} \nonumber \\
+&= - \sum_{t} \log\left[\sum_{m = 1}^M \frac{\exp\{\rho_m(\bx_t)\}}{\sum_{m' = 1}^M \exp\{\rho_{m'}(\bx_t)\}}f_m(y_t|\bx_t^{(m)})\right], \label{eqn:logloss}
+\end{align}
+where $f_m(y_t|\bx_t^{(m)})$ is the cross-validated predictive density from the $m$th model evaluated at the realized outcome $y_t$.
 
 Specifically, we define a single tree as
 \begin{equation}
-T(\bx; \btheta) = \sum_{j=1}^J \gamma_j I_{R_j}(\bx),
+T(\bx_t; \btheta) = \sum_{j=1}^J \gamma_j I_{R_j}(\bx_t),
 \end{equation}
-where the $R_j$ are a set of disjoint regions that comprise a partition of the space $\mathcal{X}$ of feature values $\bx$, and $I$ is the indicator function taking the value $1$ if $\bx \in R_j$ and $0$ otherwise. The parameters $\btheta = (\bpsi, \bgamma)$ for the tree are the split points $\bpsi$ partitioning $\mathcal{X}$ into the regions $R_j$ and the regression constants $\bgamma$ associated with each region.
-The function $\rho_m(\bx)$ is obtained as the sum of $B$ trees:
+where the $R_j$ are a set of disjoint regions that comprise a partition of the space $\mathcal{X}$ of feature values $\bx_t$, and $I$ is the indicator function taking the value $1$ if $\bx_t \in R_j$ and $0$ otherwise. The parameters $\btheta = (\bpsi, \bgamma)$ for the tree are the split points $\bpsi$ partitioning $\mathcal{X}$ into the regions $R_j$ and the regression constants $\bgamma$ associated with each region.
+The function $\rho_m(\bx_t)$ is obtained as the sum of $B$ trees:
 \begin{equation}
-\rho_m(\bx; \Theta_m) = \sum_{b=1}^B T(\bx; \btheta_{m, b}).
+\rho_m(\bx_t; \Theta_m) = \sum_{b=1}^B T(\bx_t; \btheta_{m, b}).
 \end{equation}
 
-In each iteration $b$ of the boosting process, we estimate $M$ new regression trees, one for each component model.  These trees are estimated so as to minimize a local approximation to the loss function around the weight functions that were obtained after the previous boosting iteration.
+In each iteration $b$ of the boosting process, we estimate $M$ new regression trees, one for each component model.  These trees are estimated so as to minimize a local approximation to the loss function around the weight functions that were obtained after the previous boosting iteration.  Our approach builds on the `xgb.train` function in the `xgboost` package for `R` to perform this estimation \citep{xgboost}.  The functionality in that package assumes that the loss function is convex, and optimizes a quadratic approximation to the loss in each boosting iteration.  The loss function in Equation \eqref{eqn:logloss} is not guaranteed to be convex, so a direct application of this optimization method fails in our setting.  We have modified the implementation in \citep{xgboost} to use a gradient descent step in cases where the loss is locally concave.
 
-Gradient tree boosting is appealing as a method for estimating the functions $\rho_m$ because it offers a great deal of flexibility in how the weights can vary as a function of the features $\bx$.  On the other hand, this flexibility can lead to overfitting the training data.  In order to limit the chances of overfitting, we have explored the use of four regularization parameters:
+Gradient tree boosting is appealing as a method for estimating the functions $\rho_m$ because it offers a great deal of flexibility in how the weights can vary as a function of the features $\bx_t$.  On the other hand, this flexibility can lead to overfitting the training data.  In order to limit the chances of overfitting, we have explored the use of four regularization parameters:
 
 1. The number of boosting iterations $B$.  As $B$ increases, more extreme weights (close to 0 or 1) and more rapid changes in the weights as $\bx$ varies are possible.
 
-2. An $L_1$ penalty on the number of tree leaves, $J$.  A large penalty encourages the regression trees to have fewer leaves, so that there is less flexibility for the model weights to vary as a function of $\bx$.
+2. An $L_1$ penalty on the number of tree leaves, $J$.  A large penalty encourages the regression trees to have fewer leaves, so that there is less flexibility for the model weights to vary as a function of $\bx_t$.
 
-3. The maximum depth of the regression trees; i.e., how many times the same region may be successively split.  Similarly to the $L_1$ penalty on the number of tree leaves, this controls how much flexibility there is for the model weights to vary in $\bx$.  Additionally, the maximum depth controls the number of interactions.  For instance, a maximum depth of 2 indicates that there can be at most two-way interactions between different features in setting model weights.
+3. The maximum depth of the regression trees; i.e., how many times the same region may be successively split.  Similarly to the $L_1$ penalty on the number of tree leaves, this controls how much flexibility there is for the model weights to vary in $\bx_t$.  Additionally, the maximum depth controls the number of interactions.  For instance, a maximum depth of 2 indicates that there can be at most two-way interactions between different features in setting model weights.
 
 4. An $L_1$ penalty on the regression constants $\gamma_j$.  A large penalty encourages these constants to be small, so that the overall model weights change less in each boosting iteration.
 
@@ -312,7 +316,7 @@ We selected values for these regularization parameters using a grid search optim
 
 ## Software and code
 
-We used `r R.version.string` for all analyses.\citep{Rcore2016}
+We used R version 3.2.2 (2015-08-14) for all analyses.\citep{Rcore2015}
 All data and code used for this analysis is freely available in an R package online at https://github.com/reichlab/adaptively-weighted-ensemble and may be installed in R directly.
 Predictions generated in real-time with early development versions of this model during the 2016/2017 influenza season may be viewed at https://reichlab.io/flusight/.
 To maximize reproducibility of our work, we have set seeds prior to running code that relies on stochastic simulations using the `rstream` package.\citep{Leydold2015} 
@@ -338,7 +342,7 @@ Although the aggregate performance of these models is quite similar, some differ
 
 In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.  Within each season, the component models are often among either the best-performing or the worst-performing models.  For example, the \textbf{SARIMA} model ranks first for predictions of peak timing in four out of five seasons and last in the fifth season, but ranks last for predictions of peak incidence in four out of five seasons and first in the remaining season.  Similar trends, though slightly less extreme, also hold for \textbf{KDE} and \textbf{KCDE}.
 
-The ensemble methods have more stable performance across the test phase seasons.  Only the \textbf{FW-reg-w} was among the top half of models in all seasons for predictions of onset timing; only \textbf{EW} and \textbf{FW-reg-w} were among the top half of models in all seasons for predictions of peak timing; and only \textbf{FW-reg-wu} and \textbf{FW-reg-wui} were among the top half of models in all seasons for predictions of peak incidence (Fig 5)
+The ensemble methods have more stable performance across the test phase seasons.  Only \textbf{FW-reg-w} was among the top half of models in all seasons for predictions of onset timing; only \textbf{EW} and \textbf{FW-reg-w} were among the top half of models in all seasons for predictions of peak timing; and only \textbf{FW-reg-wu} and \textbf{FW-reg-wui} were among the top half of models in all seasons for predictions of peak incidence (Fig 5)
 
 Model consistency can also be measured with the minimum of the log scores achieved across the test phase seasons.  Here again the ensemble methods outperform the component models.  In particular, worst-case performance of the \textbf{EW} and regularized \textbf{FW} methods is in the top half of all methods for all three prediction targets (Fig 5).
 
