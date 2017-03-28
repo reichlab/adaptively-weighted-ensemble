@@ -422,8 +422,8 @@ sarima_dens <- sarima_full %>%
     as.numeric(.)
 
 weights <- data_frame(
-    mdl = factor(c("KDE", "KCDE", "SARIMA"), levels=c("KDE", "KCDE", "SARIMA")),
-    weight = c(.2, .5, .3),
+    mdl = factor(c("KCDE", "KDE", "SARIMA"), levels=c("KCDE", "KDE", "SARIMA")),
+    weight = c(.5, .2, .3),
     x = 9,
     y=.4)
 
@@ -441,13 +441,14 @@ pred_dens <- data_frame(
     group_by(mdl, inc_bin) %>%
     summarize(probability = sum(probability)) %>%
     left_join(weights) %>% ungroup() %>%
-    mutate(mdl = factor(mdl, levels=c("KDE", "KCDE", "SARIMA")))
+    mutate(mdl = factor(mdl, levels=c("KCDE", "KDE", "SARIMA")))
 
 ## make the base plot
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
 p_base <- ggplot(pred_dens) + 
 #    geom_col(aes(x=inc_bin, fill=mdl)) + 
-    geom_bar(aes(x=inc_bin, fill=mdl), stat="identity") +
-    scale_fill_brewer(palette="Set2") +
+#    geom_bar(aes(x=inc_bin, fill=factor(mdl)), stat="identity", position = position_stack()) +
+    scale_fill_manual(breaks = c("KCDE", "KDE", "SARIMA"), values = color_palette) +
     xlab("peak incidence value (binned wILI)") +
     coord_cartesian(xlim=c(0, 11), ylim=c(0, 0.5)) +
     theme_minimal() + 
@@ -455,11 +456,13 @@ p_base <- ggplot(pred_dens) +
 
 ## left hand tri-part panel
 p1 <- p_base + aes(y=probability) + theme(strip.text.y = element_blank())+
+    geom_bar(aes(x=inc_bin, fill=factor(mdl)), stat="identity", position = position_stack()) +
     facet_grid(mdl~.) + ggtitle("A: Original predictions") +
-    geom_text(data=weights, aes(x=8, y=y, label=mdl), hjust=0, size=5)
+    geom_text(data=weights, aes(x=7.4, y=y, label=mdl), hjust=0, size=5)
 
 ## center tri-part panel
 p2 <- p_base + aes(y=probability * weight) + 
+    geom_bar(aes(x=inc_bin, fill=factor(mdl)), stat="identity", position = position_stack()) +
     facet_grid(mdl~.) + ggtitle("B: Weighted predictions") +
     theme(strip.text.y = element_blank(), axis.title.y = element_blank()) +
     geom_text(data=weights, parse=TRUE,
@@ -475,11 +478,13 @@ title_plot <- blankPlot +
     geom_text(aes(x=0, y=.1,label="C: Stacked prediction"), hjust=0, size=4.5)
 
 axis_plot <- blankPlot + 
-    geom_text(aes(x=.5, y=1,label="peak incidence value (binned wILI)"), size=4)
+    geom_text(aes(x=.5, y=0.9,label="peak incidence value (binned wILI)"), size=4)
 
 ## middle left
 p3 <- p_base + aes(y=probability * weight) + 
-    theme(axis.title.y = element_blank(), axis.title.x=element_blank()) 
+    geom_bar(aes(x=inc_bin, fill=factor(mdl, levels = rev(levels(mdl)))), stat="identity", position = position_stack()) +
+    theme(axis.title.y = element_blank(), axis.title.x=element_blank(),
+      plot.margin = unit(c(2, 6, 0, 6), "pt")) 
 
 p4 <- grid.arrange(title_plot, p3, axis_plot)
 
