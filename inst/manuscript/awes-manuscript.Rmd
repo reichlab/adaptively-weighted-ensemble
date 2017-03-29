@@ -1042,7 +1042,7 @@ grid.draw(ensemble_legend)
 upViewport()
 ```
 
-```{r fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:FWregwuModelWeights}Weights assigned to each component model by the \\textbf{FW-reg-wu} model for prediction of season peak incidence at the national level.  There are three weighting functions (one for each component model), and these are functions of three features: the week of the season at the time when the predictions are made, KCDE model uncertainty, and SARIMA model uncertainty.  Each panel (A, B, and C) shows how the component model weights vary with two of these features, holding the third fixed at a typical value."}
+```{r fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:FWregwuModelWeights}Weights assigned to each component model by the FW-reg-wu model for the prediction of season peak incidence at the national level. There are three weighting functions (one for each component model) represented in each row of the figure. The value of the weight is depicted by the color. Each function depends on three features: the week of the season at the time when the predictions are made, KCDE model uncertainty, and SARIMA model uncertainty. Model uncertainty represents the minimum number of predictive distribution bins required to cover 90\% probability of the predictive distribution, so the higher this number is the more uncertain the model is."}
 get_legend_grob <- function(x) {
   data <- ggplot2:::ggplot_build(x)
   
