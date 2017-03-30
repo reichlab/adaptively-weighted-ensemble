@@ -280,7 +280,7 @@ We used four distinct methodologies to define weights to use for the stacking mo
 
 All in all, this leads to 6 ensemble models, summarized in Table \ref{tbl:EnsembleModelSummaryTable}.  The first three of these models (\textbf{EW}, \textbf{dEM}, and \textbf{FW}) can be viewed as variations on \textbf{FW-reg-wu} if we vary the amount and type of regularization imposed on the \textbf{FW-reg-wu} model.  Thus, comparisons among these four models will enable us to explore the benefits of allowing the model weights to depend on covariates while imposing an appropriate amount of rigidity on the model weight functions $\pi_m(\bx_t)$.  We will discuss the regularization strategies used in \textbf{FW-reg-wu} further in the next subsection.  Meanwhile, comparisons among the \textbf{FW-reg-w}, \textbf{FW-reg-wu}, and \textbf{FW-reg-wui} models will allow us to explore the relative contributions to predictive performance that can be achieved by allowing the model weights to depend on different features.
 
-\begin{table}[!h]
+\begin{table}[!ht]
 \centering
 \caption{\label{tbl:EnsembleModelSummaryTable}Summary of ensemble methods and what the model weights depend on.}
 \begin{tabular}{rcccccc}
@@ -1042,7 +1042,7 @@ grid.draw(ensemble_legend)
 upViewport()
 ```
 
-```{r fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:FWregwuModelWeights}Weights assigned to each component model by the FW-reg-wu model for the prediction of season peak incidence at the national level. There are three weighting functions (one for each component model) represented in each row of the figure. The value of the weight is depicted by the color. Each function depends on three features: the week of the season at the time when the predictions are made, KCDE model uncertainty, and SARIMA model uncertainty. Model uncertainty represents the minimum number of predictive distribution bins required to cover 90\% probability of the predictive distribution, so the higher this number is the more uncertain the model is."}
+```{r fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:FWregwuModelWeights}Weights assigned to each component model by the FW-reg-wu model for the prediction of season peak incidence at the national level. There are three weighting functions (one for each component model) represented in each row of the figure. The value of the weight is depicted by the color. Each function depends on three features: the week of the season at the time when the predictions are made, KCDE model uncertainty, and SARIMA model uncertainty. Model uncertainty represents the minimum number of predictive distribution bins required to cover 90% probability of the predictive distribution, so the higher this number is the more uncertain the model is."}
 get_legend_grob <- function(x) {
   data <- ggplot2:::ggplot_build(x)
   

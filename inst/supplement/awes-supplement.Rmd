@@ -221,7 +221,7 @@ ggplot() +
 ```
 
 
-```{r log_scores_vs_uncertainty, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsUncertainty}Log scores achieved by each component model vs{.} model uncertainty as measured by the number of bins required to cover 90% of the predictive distribution.  The plot summarizes results across all seasons in the training phase when all three component models produced predictions.  The thick line is a smoothed estimate of mean log score at each week in the season; the shaded region indicates the convex hull of log scores achieved by each model; and the actual log scores achieved in each week are indicated with points."}
+```{r log_scores_vs_uncertainty, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVsUncertainty}Log scores achieved by each component model vs. model uncertainty as measured by the number of bins required to cover 90% of the predictive distribution.  The plot summarizes results across all seasons in the training phase when all three component models produced predictions.  The thick line is a smoothed estimate of mean log score at each week in the season; the shaded region indicates the convex hull of log scores achieved by each model; and the actual log scores achieved in each week are indicated with points."}
 color_palette <- c("#E69F00", "#56B4E9", "#009E73")
 
 regions_to_plot <- c("National", "Region1", "Region7")
@@ -385,7 +385,7 @@ ggplot() +
 ```
 
 
-```{r log_scores_vs_wili, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVswILI}Log scores achieved by each component model vs{.} wILI in the week of the season when predictions were made.  The plot summarizes results across all seasons in the training phase when all three component models produced predictions.  The thick line is a smoothed estimate of mean log score at each week in the season; the shaded region indicates the convex hull of log scores achieved by each model; and the actual log scores achieved in each week are indicated with points."}
+```{r log_scores_vs_wili, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:ComponentModelLogScoresVswILI}Log scores achieved by each component model vs. wILI in the week of the season when predictions were made.  The plot summarizes results across all seasons in the training phase when all three component models produced predictions.  The thick line is a smoothed estimate of mean log score at each week in the season; the shaded region indicates the convex hull of log scores achieved by each model; and the actual log scores achieved in each week are indicated with points."}
 color_palette <- c("#E69F00", "#56B4E9", "#009E73")
 
 regions_to_plot <- c("National", "Region1", "Region7")
