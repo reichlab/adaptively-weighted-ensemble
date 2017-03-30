@@ -9,7 +9,7 @@ library(doMC)
 library(awes)
 
 loso_preds_path <- "inst/estimation/loso-predictions"
-stacking_model_fits_path <- "inst/estimation/xgb-stacking/fits2"
+stacking_model_fits_path <- "inst/estimation/xgb-stacking/fits"
 
 component_model_names <- c("kde", "kcde", "sarima")
 
@@ -36,16 +36,9 @@ foreach(region = c("National", paste0("Region", 1:10))) %dopar% {
     
     weights <- NULL
     for(target in c("onset", "peak_week", "peak_inc")) {
-      model_fit <- readRDS(
-        file = file.path(stacking_model_fits_path,
-          paste0("xgbstack_fit_", region, "_", target, "_", explanatory_variables, ".rds")))
-      best_ind <- which.max(model_fit$cv_results$cv_log_score_mean)
-      weight_params_ind <- which(rownames(model_fit$params) == best_ind)
-      
       target_weights <- readRDS(
         file = file.path(stacking_model_fits_path,
           paste0("model_weights_", region, "_", target, "_", explanatory_variables, ".rds"))) %>%
-#         select_(.dots = c(explanatory_variables_split, paste0(component_model_names, "_log_score_params_ind_", weight_params_ind))) %>%
           select_(.dots = c(explanatory_variables_split, paste0(component_model_names, "_log_score_params_combined"))) %>%
         `colnames<-`(c(explanatory_variables_split, component_model_names)) %>%
         mutate(region = region,

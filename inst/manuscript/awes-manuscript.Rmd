@@ -703,7 +703,7 @@ model_weights <- rbind.fill(
         c("ensemble_method", "analysis_time_season_week", "model", "weight")),
   readRDS(
     file = file.path(awes_path,
-      "estimation/xgb-stacking/fits2/model_weights_National_onset_analysis_time_season_week.rds")) %>%
+      "estimation/xgb-stacking/fits/model_weights_National_onset_analysis_time_season_week.rds")) %>%
     select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
     `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
     gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
@@ -815,7 +815,7 @@ model_weights <- rbind.fill(
         c("ensemble_method", "analysis_time_season_week", "model", "weight")),
   readRDS(
     file = file.path(awes_path,
-      "estimation/xgb-stacking/fits2/model_weights_National_peak_week_analysis_time_season_week.rds")) %>%
+      "estimation/xgb-stacking/fits/model_weights_National_peak_week_analysis_time_season_week.rds")) %>%
     select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
     `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
     gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
@@ -915,7 +915,7 @@ model_weights <- rbind.fill(
         c("ensemble_method", "analysis_time_season_week", "model", "weight")),
   readRDS(
     file = file.path(awes_path,
-      "estimation/xgb-stacking/fits2/model_weights_National_peak_inc_analysis_time_season_week.rds")) %>%
+      "estimation/xgb-stacking/fits/model_weights_National_peak_inc_analysis_time_season_week.rds")) %>%
     select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
     `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
     gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
@@ -1087,7 +1087,7 @@ get_legend_grob <- function(x) {
 
 awes_path <- find.package("awes")
 loso_preds_path <- file.path(awes_path, "estimation/loso-predictions")
-stacking_model_fits_path <- file.path(awes_path, "estimation/xgb-stacking/fits2")
+stacking_model_fits_path <- file.path(awes_path, "estimation/xgb-stacking/fits")
 
 component_model_names <- c("kde", "kcde", "sarima")
 region <- "National"
