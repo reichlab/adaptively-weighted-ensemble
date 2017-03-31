@@ -103,6 +103,10 @@ We trained the models on retrospective predictions from 14 seasons (1997/1998 - 
 In this test phase, the ensemble methods showed overall performance that was similar to the best of the component models, but offered more consistent performance across seasons than the component models. 
 Ensemble methods offer the potential to deliver more reliable predictions to public health decision makers.
 
+# Author Summary
+
+Public health agencies such as the Centers for Disease Control would like to have as much information as possible when planning interventions intended to reduce and prevent the spread of infectious disease.  For instance, accurate and reliable predictions of the timing and severity of the influenza season could help with planning how many influenza vaccine doses to produce and by what date they will be needed.  Many different mathematical and statistical models have been proposed to model influenza and other infectious diseases, and these models have different strengths and weaknesses.  In particular, one or another of these model specifications is often better than the others in different seasons, at different times within the season, and for different prediction targets (such as different measures of the timing or severity of the influenza season).  In this article, we explore ensemble methods that combine predictions from multiple “component” models.  We find that these ensemble methods do about as well as the best of the component models in terms of aggregate performance across multiple seasons, but that the ensemble methods have more consistent performance across different seasons.  This improved consistency is valuable for planners who need predictions that can be trusted under all circumstances.
+
 \linenumbers
 
 # Introduction
