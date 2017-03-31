@@ -1,0 +1,146 @@
+\begin{thebibliography}{10}
+
+\bibitem{cdc-decisions-2016}
+{Centers for Disease Control and Prevention}. {Staying Ahead of the Curve:
+  Modeling and Public Health Decision-Making}; 2016.
+\newblock Available from:
+  \url{http://www.cdc.gov/cdcgrandrounds/archives/2016/january2016.htm}.
+
+\bibitem{ReichLabGitHubDiseasePredWithKCDEPackage}
+Ray E, Sakrejda K, Lauer SA, Reich NG. {The Reich Lab at UMass-Amherst}; 2016.
+
+\bibitem{polikar2006ensemble}
+Polikar R.
+\newblock Ensemble based systems in decision making.
+\newblock IEEE Circuits and systems magazine. 2006;6(3):21--45.
+
+\bibitem{Hastie2011}
+Hastie T, Tibshirani R, Friedman J.
+\newblock {The Elements of Statistical Learning: Data Mining, Inference, and
+  Prediction}.
+\newblock 2nd ed. Springer; 2011.
+
+\bibitem{smyth1999stackingDensityEstimators}
+Smyth P, Wolpert D.
+\newblock Linearly combining density estimators via stacking.
+\newblock Machine Learning. 1999;36(1-2):59--83.
+
+\bibitem{rigollet2007linearconvexaggregationdensity}
+Rigollet P, Tsybakov AB.
+\newblock Linear and convex aggregation of density estimators.
+\newblock Mathematical Methods of Statistics. 2007;16(3):260--280.
+
+\bibitem{ganti2011cake}
+Ganti R, Gray A.
+\newblock Cake: Convex adaptive kernel density estimation.
+\newblock In: International Conference on Artificial Intelligence and
+  Statistics; 2011. p. 498--506.
+
+\bibitem{rosset2002boosting}
+Rosset S, Segal E.
+\newblock Boosting density estimation.
+\newblock In: NIPS; 2002. p. 641--648.
+
+\bibitem{herbster1998tracking}
+Herbster M, Warmuth MK.
+\newblock Tracking the best expert.
+\newblock Machine Learning. 1998;32(2):151--178.
+
+\bibitem{yamanishi2007dynamicmodelselection}
+Yamanishi K, Maruyama Y.
+\newblock Dynamic model selection with its applications to novelty detection.
+\newblock IEEE Transactions on Information Theory. 2007;53(6):2180--2189.
+
+\bibitem{cortes2014ensembleStructuredPrediction}
+Cortes C, Kuznetsov V, Mohri M.
+\newblock Ensemble Methods for Structured Prediction.
+\newblock In: Proceedings of The 31st International Conference on Machine
+  Learning; 2014. p. 1134--1142.
+
+\bibitem{Sill2009}
+Sill J, Takacs G, Mackey L, Lin D.
+\newblock {Feature-Weighted Linear Stacking}.
+\newblock arXiv. 2009;.
+
+\bibitem{jahrer2010Netflix}
+Jahrer M, T{\"o}scher A, Legenstein R.
+\newblock Combining predictions for accurate recommender systems.
+\newblock In: Proceedings of the 16th ACM SIGKDD international conference on
+  Knowledge discovery and data mining. ACM; 2010. p. 693--702.
+
+\bibitem{Yamana2016}
+Yamana TK, Kandula S, Shaman J.
+\newblock {Superensemble forecasts of dengue outbreaks}.
+\newblock Journal of The Royal Society Interface. 2016;13(123):20160410.
+
+\bibitem{Wolpert1992}
+Wolpert DH.
+\newblock {Stacked generalization}.
+\newblock Neural Networks. 1992;5(2):241--259.
+
+\bibitem{friedman2001greedy}
+Friedman JH.
+\newblock Greedy function approximation: a gradient boosting machine.
+\newblock Annals of statistics. 2001; p. 1189--1232.
+
+\bibitem{cdc2016}
+{Centers for Disease Control and Prevention}. {Overview of Influenza
+  Surveillance in the United States}; 2016.
+\newblock Available from: \url{https://www.cdc.gov/flu/weekly/overview.htm}.
+
+\bibitem{cdc2016-baselines}
+{Centers for Disease Control and Prevention}. {Regional baseline values for
+  influenza-like illness}; 2016.
+\newblock Available from:
+  \url{https://github.com/cdcepi/FluSight-forecasts/blob/master/wILI{\_}Baseline.csv}.
+
+\bibitem{cdc2016-contest-guidelines}
+{Centers for Disease Control and Prevention}. {Epidemic Prediction Initiative};
+  2016.
+\newblock Available from:
+  \url{https://predict.phiresearchlab.org/post/57f3f440123b0f563ece2576}.
+
+\bibitem{Gneiting2007}
+Gneiting T, Raftery AE.
+\newblock {Strictly proper scoring rules, prediction, and estimation}.
+\newblock Journal of the American Statistical Association.
+  2007;102(477):359--378.
+
+\bibitem{silverman1986density}
+Silverman BW.
+\newblock Density estimation for statistics and data analysis. vol.~26.
+\newblock CRC press; 1986.
+
+\bibitem{Rcore2015}
+{R Core Team}. R: A Language and Environment for Statistical Computing; 2015.
+\newblock Available from: \url{https://www.R-project.org/}.
+
+\bibitem{Box2015}
+Box GE, Jenkins GM, Reinsel GC, Ljung GM.
+\newblock Time series analysis: forecasting and control.
+\newblock John Wiley \& Sons; 2015.
+
+\bibitem{Hyndman2008}
+Hyndman RJ, Khandakar Y.
+\newblock {Automatic time series forecasting: The forecast package for R}.
+\newblock Journal Of Statistical Software. 2008;27(3):C3--C3.
+\newblock doi:{10.18637/jss.v027.i03}.
+
+\bibitem{Lin2004}
+Lin X, Zhu Y.
+\newblock {Degenerate Expectation-Maximization Algorithm for Local Dimension
+  Reduction}.
+\newblock In: Classification, Clustering, and Data Mining Applications. Berlin,
+  Heidelberg: Springer Berlin Heidelberg; 2004. p. 259--268.
+\newblock Available from:
+  \url{http://link.springer.com/10.1007/978-3-642-17103-1{\_}25}.
+
+\bibitem{xgboost}
+Chen T, He T, Benesty M. xgboost: Extreme Gradient Boosting; 2016.
+\newblock Available from: \url{https://CRAN.R-project.org/package=xgboost}.
+
+\bibitem{Leydold2015}
+Leydold J. rstream: Streams of Random Numbers; 2015.
+\newblock Available from: \url{https://CRAN.R-project.org/package=rstream}.
+
+\end{thebibliography}
