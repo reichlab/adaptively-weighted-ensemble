@@ -13,13 +13,15 @@ knitr::opts_knit$set(root.dir = here::here())
 
 ## Data Processing
 
-Download the data from the CDC and clean it, save as "data-raw/allflu-cleaned.csv" and "data/flu_data.rdata". The version in this repository was created on February 17, 2017 and covers flu data through the last week of 2016.
+Download the data from the CDC and clean it, save as "data-raw/allflu-cleaned.csv" and "data/flu_data.rdata".
+The version in this repository was created on February 17, 2017 and covers flu data through the last week of 2016.
 
 ```{r data-processing, eval=FALSE}
 source("inst/data-processing/create-clean-flu-data.R")
 ```
 
-Find the regional means from 1997-2006 and save those as a baseline. Saved in "data-raw/cdc-baselines.csv" and  = "data/flu_onset_baselines.rdata".
+Find the regional means from 1997-2006 and save those as a baseline.
+Saved in "data-raw/cdc-baselines.csv" and  = "data/flu_onset_baselines.rdata".
 
 ```{r make-baselines, eval=FALSE}
 source("inst/data-processing/create-clean-flu-data.R")
@@ -27,10 +29,18 @@ source("inst/data-processing/create-clean-flu-data.R")
 
 ## Estimation
 
-You can also embed plots, for example:
+Estimate KDE fits for Leave-One-Season-Out (LOSO) cross validation, which are saved in "inst/estimation/kde/fits".
+Also makes LOSO predictions, which are saved in "inst/estimation/loso-predictions". 
+This file also sources a script that quickly creates diagnostic figures for checking the model fits.
+The KDE fits and predictions on the server were saved on February 3, 2016.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r fit-kde, eval=FALSE}
+source("estimation/kde/kde-estimation.R")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+"inst/estimation/kde/check-loso-predictions.R" runs a more thorough set of diagnostics and creates multiple pdfs of figures for checking the model fits and predictions.
+
+```{r more-kde-diagnostics}
+source("inst/estimation/kde/check-loso-predictions.R")
+```
+

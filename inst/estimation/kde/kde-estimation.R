@@ -5,9 +5,6 @@
 ## 1/16/2017 - Nicholas Reich - modified for standardized LOSO prediction function
 ## 1/18/2017 - Nicholas Reich - random seeds and re-organizing of code
 
-## set to root directory of package code
-setwd("~/Documents/code_versioned/adaptively-weighted-ensemble/")
-
 library(awes)
 library(rstream)
 library(MMWRweek)
@@ -26,13 +23,13 @@ rngstream <- get_initial_rng_substream()
 library(doMC)
 registerDoMC(11)
 foreach(reg=region_strings) %dopar% {
-    
-    ## fit LOSO models on training seasona
+
+    ## fit LOSO models on training seasons
     # reg = region_strings[1]
     fit_region_kdes(fludat, region=reg,
                     first_test_year = 2011, first_test_week = 31,
                     path = fit_path)
-    
+
     ## make leave-one-season-out predictions for training seasons
     # ## for debugging
     # debug(get_log_scores_via_direct_simulation)
@@ -46,7 +43,7 @@ foreach(reg=region_strings) %dopar% {
             region = reg,
             season = analysis_time_season,
             set_rng = TRUE)
-        
+
         ## get and save log scores
         get_log_scores_via_direct_simulation(
             analysis_time_season = analysis_time_season,
