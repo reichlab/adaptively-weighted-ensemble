@@ -1,0 +1,36 @@
+---
+title: "AWE workflow"
+author: "Evan L Ray, Nicholas G Reich, Stephen A Lauer"
+date: "April 4, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# devtools::install_github("krlmlr/here")
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+## Data Processing
+
+Download the data from the CDC and clean it, save as "data-raw/allflu-cleaned.csv" and "data/flu_data.rdata". The version in this repository was created on February 17, 2017 and covers flu data through the last week of 2016.
+
+```{r data-processing, eval=FALSE}
+source("inst/data-processing/create-clean-flu-data.R")
+```
+
+Find the regional means from 1997-2006 and save those as a baseline. Saved in "data-raw/cdc-baselines.csv" and  = "data/flu_onset_baselines.rdata".
+
+```{r make-baselines, eval=FALSE}
+source("inst/data-processing/create-clean-flu-data.R")
+```
+
+## Estimation
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
