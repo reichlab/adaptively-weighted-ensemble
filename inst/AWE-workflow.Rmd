@@ -11,9 +11,38 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = here::here())
 ```
 
+## Setup
+
+To run this code, you will need to install the following package from github:
+
+```{r github-packages, eval=FALSE}
+devtools::install_github("reichlab/kcde")
+```
+
+If you are running this on a Mac and get an error that looks like:
+
+```
+ld: warning: directory not found for option '-L/usr/local/lib/gcc/x86_64-apple-darwin13.0.0/4.8.2'
+ld: library not found for -lgfortran
+```
+
+Then you may have a wrong version of `gfortran`.
+Try running the following in the Terminal:
+
+```
+curl -O http://r.research.att.com/libs/gfortran-4.8.2-darwin13.tar.bz2
+sudo tar fvxj gfortran-4.8.2-darwin13.tar.bz2 -C /8
+```
+
+If `kcde` still does not install, you may have too recent a version of `gfortran` and you may need to uninstall your current version with a program such as `homebrew`.
+
+```
+brew uninstall gcc
+```
+
 ## Data Processing
 
-Download the data from the CDC and clean it, save as "data-raw/allflu-cleaned.csv" and "data/flu_data.rdata".
+Download the data from the CDC and clean it, save as `data-raw/allflu-cleaned.csv` and `data/flu_data.rdata`.
 The version in this repository was created on February 17, 2017 and covers flu data through the last week of 2016.
 
 ```{r data-processing, eval=FALSE}
@@ -21,26 +50,52 @@ source("inst/data-processing/create-clean-flu-data.R")
 ```
 
 Find the regional means from 1997-2006 and save those as a baseline.
-Saved in "data-raw/cdc-baselines.csv" and  = "data/flu_onset_baselines.rdata".
+Saved in `data-raw/cdc-baselines.csv` and `data/flu_onset_baselines.rdata`.
 
 ```{r make-baselines, eval=FALSE}
 source("inst/data-processing/create-clean-flu-data.R")
 ```
 
-## Estimation
+## KDE Estimation
 
-Estimate KDE fits for Leave-One-Season-Out (LOSO) cross validation, which are saved in "inst/estimation/kde/fits".
-Also makes LOSO predictions, which are saved in "inst/estimation/loso-predictions". 
+Estimate KDE fits for Leave-One-Season-Out (LOSO) cross validation, which are saved in `inst/estimation/kde/fits`.
+Also makes LOSO predictions, which are saved in `inst/estimation/loso-predictions`. 
 This file also sources a script that quickly creates diagnostic figures for checking the model fits.
-The KDE fits and predictions on the server were saved on February 3, 2016.
 
-```{r fit-kde, eval=FALSE}
+```{r kde-fit, eval=FALSE}
 source("estimation/kde/kde-estimation.R")
 ```
 
-"inst/estimation/kde/check-loso-predictions.R" runs a more thorough set of diagnostics and creates multiple pdfs of figures for checking the model fits and predictions.
+`inst/estimation/kde/check-loso-predictions.R` runs a more thorough set of diagnostics and creates multiple pdfs of figures for checking the model fits and predictions.
 
-```{r more-kde-diagnostics}
+```{r kde-diagnostics, eval=FALSE}
 source("inst/estimation/kde/check-loso-predictions.R")
 ```
 
+## KCDE Estimation
+
+Estimate the KCDE fits on the cluster, save them in `inst/estimation/kcde/fits`.
+
+```{r fit-kcde, eval=FALSE}
+source("inst/estimation/kcde/submit-cluster-job-kcde-estimation-step.R")
+```
+
+Run LOSO cross validation on the cluster and save results to `inst/estimation/loso-predictions`.
+
+```{r kcde-loso, eval=FALSE}
+source("inst/estimation/kcde/submit-cluster-job-kcde-loso-prediction-step.R")
+```
+
+Estimate copulas for LOSO cross validation and save results to `inst/estimation/kcde/copula-fits`.
+
+```{r kcde-copulas, eval=FALSE}
+source("inst/estimation/kcde/copula-estimation-step.R")
+source("inst/estimation/kcde/copula-estimation-step-none-left-out.R")
+```
+
+Check that the distributions sum to 1 and print pdfs of model diagnostics.
+
+```{r kcde-diagnostics, eval=FALSE}
+source("inst/estimation/kcde/check_dists_sum_to_1.R")
+source("inst/estimation/kcde/check-loso-predictions.R")
+```
