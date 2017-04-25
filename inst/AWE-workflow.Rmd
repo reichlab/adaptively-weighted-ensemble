@@ -1,0 +1,133 @@
+---
+title: "AWE workflow"
+author: "Evan L Ray, Nicholas G Reich, Stephen A Lauer"
+date: "April 4, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+# devtools::install_github("krlmlr/here")
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+## Setup
+
+To run this code, you will need to install the following package from github:
+
+```{r github-packages}
+devtools::install_github("reichlab/kcde")
+```
+
+If you are running this on a Mac and get an error that looks like:
+
+```
+ld: warning: directory not found for option '-L/usr/local/lib/gcc/x86_64-apple-darwin13.0.0/4.8.2'
+ld: library not found for -lgfortran
+```
+
+Then you may have a wrong version of `gfortran`.
+Try running the following in the Terminal:
+
+```
+curl -O http://r.research.att.com/libs/gfortran-4.8.2-darwin13.tar.bz2
+sudo tar fvxj gfortran-4.8.2-darwin13.tar.bz2 -C /8
+```
+
+If `kcde` still does not install, you may have too recent a version of `gfortran` and you may need to uninstall your current version with a program such as `homebrew`.
+
+```
+brew uninstall gcc
+```
+
+## Data Processing
+
+Download the data from the CDC and clean it, save as `data-raw/allflu-cleaned.csv` and `data/flu_data.rdata`.
+The version in this repository was created on February 17, 2017 and covers flu data through the last week of 2016.
+
+```{r data-processing}
+source("inst/data-processing/create-clean-flu-data.R")
+```
+
+Find the regional means from 1997-2006 and save those as a baseline.
+Saved in `data-raw/cdc-baselines.csv` and `data/flu_onset_baselines.rdata`.
+
+```{r make-baselines}
+source("inst/data-processing/create-clean-flu-data.R")
+```
+
+## Model Estimation
+### KDE
+
+Estimate KDE fits for Leave-One-Season-Out (LOSO) cross validation, which are saved in `inst/estimation/kde/fits`.
+Also makes LOSO predictions, which are saved in `inst/estimation/loso-predictions`. 
+This file also sources a script that quickly creates diagnostic figures for checking the model fits.
+
+```{r kde-fit}
+source("estimation/kde/kde-estimation.R")
+```
+
+`inst/estimation/kde/check-loso-predictions.R` runs a more thorough set of diagnostics and creates multiple pdfs of figures for checking the model fits and predictions.
+
+```{r kde-diagnostics}
+source("inst/estimation/kde/check-loso-predictions.R")
+```
+
+### KCDE
+
+Estimate the KCDE fits on the cluster, save them in `inst/estimation/kcde/fits`.
+
+```{r fit-kcde}
+source("inst/estimation/kcde/submit-cluster-job-kcde-estimation-step.R")
+```
+
+Run LOSO cross validation on the cluster and save results to `inst/estimation/loso-predictions`.
+
+```{r kcde-loso}
+source("inst/estimation/kcde/submit-cluster-job-kcde-loso-prediction-step.R")
+```
+
+Estimate copulas for LOSO cross validation and save results to `inst/estimation/kcde/copula-fits`.
+
+```{r kcde-copulas}
+source("inst/estimation/kcde/copula-estimation-step.R")
+source("inst/estimation/kcde/copula-estimation-step-none-left-out.R")
+```
+
+Check that the distributions sum to 1 and print pdfs of model diagnostics.
+
+```{r kcde-diagnostics}
+source("inst/estimation/kcde/check_dists_sum_to_1.R")
+source("inst/estimation/kcde/check-loso-predictions.R")
+```
+
+### SARIMA
+
+Fit the LOSO SARIMA models using `auto.arima()` and save the fits in `inst/estimation/sarima/fits`
+
+```{r sarima-fit}
+source("inst/estimation/sarima/sarima-estimation-loso.R")
+```
+
+Make LOSO SARIMA predictions on the cluster and save in `inst/estimation/loso-predictions`.
+
+```{r sarima-loso}
+source("inst/estimation/sarima/submit-cluster-job-sarima-loso-prediction-step.R")
+```
+
+Make diagnostic plots for SARIMA predictions.
+
+```{r sarima-diagnostics}
+source("inst/estimation/sarima/check-loso-predictions.R")
+```
+
+## Ensemble Weight Estimation
+
+### EM algorithm
+
+Estimate the weights for the degenerate EM stacking algorithm, as specified in this presentation (http://www.cs.cmu.edu/~roni/11761-f16/Presentations/degenerateEM.pdf).
+Fitted weights are saved in `inst/estimation/em-stacking/fits`.
+
+```{r em-fit}
+source("inst/estimation/em-stacking/em-stacking-estimation.R")
+```

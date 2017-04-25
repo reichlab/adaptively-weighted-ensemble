@@ -13,19 +13,19 @@ library(forecast)
 ## I haven't made these a part of the copula package, but have just put the
 ## revised functions here.
 
-fitCopula.ml <- function (copula, u, start, lower, upper, method, optim.control, 
+fitCopula.ml <- function (copula, u, start, lower, upper, method, optim.control,
                           estimate.variance, hideWarnings, bound.eps = .Machine$double.eps^0.5)
 {
-  if (any(u < 0) || any(u > 1)) 
+  if (any(u < 0) || any(u > 1))
     stop("'u' must be in [0,1] -- probably rather use pobs(.)")
   stopifnot(is.numeric(d <- ncol(u)), d >= 2)
-  if (copula@dimension != d) 
+  if (copula@dimension != d)
     stop("The dimension of the data and copula do not match")
-  if (is.null(start)) 
+  if (is.null(start))
     start <- fitCopStart(copula, u)
-  if (any(is.na(start))) 
+  if (any(is.na(start)))
     stop("'start' contains NA values")
-  
+
   ## NEW -- make start give a p.d. matrix.
   copula@parameters <- start
   while(min(eigen(getSigma(copula))$values) < 10^{-6}) {
@@ -34,41 +34,41 @@ fitCopula.ml <- function (copula, u, start, lower, upper, method, optim.control,
     start <- sigma[1, seq(from = 2, to = ncol(sigma))]
     copula@parameters <- start
   }
-  
+
   q <- length(copula@parameters)
-  if (q != length(start)) 
-    stop(gettextf("The lengths of 'start' (= %d) and copula@parameters (=%d) differ", 
+  if (q != length(start))
+    stop(gettextf("The lengths of 'start' (= %d) and copula@parameters (=%d) differ",
                   length(start), q), domain = NA)
   control <- c(optim.control, fnscale = -1)
   control <- control[!vapply(control, is.null, NA)]
-  if (!is.null(optim.control[[1]])) 
+  if (!is.null(optim.control[[1]]))
     control <- c(control, optim.control)
   meth.has.bounds <- method %in% c("Brent", "L-BFGS-B")
-  if (is.null(lower)) 
-    lower <- if (meth.has.bounds) 
+  if (is.null(lower))
+    lower <- if (meth.has.bounds)
       copula@param.lowbnd + bound.eps
   else -Inf
-  if (is.null(upper)) 
-    upper <- if (meth.has.bounds) 
+  if (is.null(upper))
+    upper <- if (meth.has.bounds)
       copula@param.upbnd - bound.eps
   else Inf
-  (if (hideWarnings) 
+  (if (hideWarnings)
     suppressWarnings
-  else identity)(fit <- optim(start, loglikCopula, lower = lower, 
-                              upper = upper, method = method, copula = copula, x = u, 
+  else identity)(fit <- optim(start, loglikCopula, lower = lower,
+                              upper = upper, method = method, copula = copula, x = u,
                               control = control))
   copula@parameters[1:q] <- fit$par
   loglik <- fit$val
   has.conv <- fit[["convergence"]] == 0
-  if (is.na(estimate.variance)) 
+  if (is.na(estimate.variance))
     estimate.variance <- has.conv
-  if (!has.conv) 
-    warning("possible convergence problem: optim() gave code=", 
+  if (!has.conv)
+    warning("possible convergence problem: optim() gave code=",
             fit$convergence)
   varNA <- matrix(NA_real_, q, q)
   var.est <- if (estimate.variance) {
-    fit.last <- optim(copula@parameters, loglikCopula, lower = lower, 
-                      upper = upper, method = method, copula = copula, 
+    fit.last <- optim(copula@parameters, loglikCopula, lower = lower,
+                      upper = upper, method = method, copula = copula,
                       x = u, control = c(control, maxit = 0), hessian = TRUE)
     vcov <- tryCatch(solve(-fit.last$hessian), error = function(e) e)
     if (is(vcov, "error")) {
@@ -78,40 +78,40 @@ fitCopula.ml <- function (copula, u, start, lower, upper, method, optim.control,
     else vcov
   }
   else varNA
-  new("fitCopula", estimate = fit$par, var.est = var.est, method = "maximum likelihood", 
-      loglik = loglik, fitting.stats = c(list(method = method), 
-                                         fit[c("convergence", "counts", "message")], control), 
+  new("fitCopula", estimate = fit$par, var.est = var.est, method = "maximum likelihood",
+      loglik = loglik, fitting.stats = c(list(method = method),
+                                         fit[c("convergence", "counts", "message")], control),
       nsample = nrow(u), copula = copula)
 }
 
-fitCopula <- function (copula, data, method = c("mpl", "ml", "itau", "irho"), 
-                       start = NULL, lower = NULL, upper = NULL, optim.method = "BFGS", 
-                       optim.control = list(maxit = 1000), estimate.variance = NA, 
-                       hideWarnings = TRUE) 
+fitCopula <- function (copula, data, method = c("mpl", "ml", "itau", "irho"),
+                       start = NULL, lower = NULL, upper = NULL, optim.method = "BFGS",
+                       optim.control = list(maxit = 1000), estimate.variance = NA,
+                       hideWarnings = TRUE)
 {
   if (!is.matrix(data)) {
     warning("coercing 'data' to a matrix.")
     data <- as.matrix(data)
     stopifnot(is.matrix(data))
   }
-  switch(match.arg(method), ml = fitCopula.ml(copula, data, 
-                                              start = start, lower = lower, upper = upper, method = optim.method, 
-                                              optim.control = optim.control, estimate.variance = estimate.variance, 
-                                              hideWarnings = hideWarnings), mpl = fitCopula.mpl(copula, 
-                                                                                                data, start = start, lower = lower, upper = upper, optim.method = optim.method, 
-                                                                                                optim.control = optim.control, estimate.variance = estimate.variance, 
-                                                                                                hideWarnings = hideWarnings), itau = fitCopula.itau(copula, 
-                                                                                                                                                    data, estimate.variance = estimate.variance), irho = fitCopula.irho(copula, 
+  switch(match.arg(method), ml = fitCopula.ml(copula, data,
+                                              start = start, lower = lower, upper = upper, method = optim.method,
+                                              optim.control = optim.control, estimate.variance = estimate.variance,
+                                              hideWarnings = hideWarnings), mpl = fitCopula.mpl(copula,
+                                                                                                data, start = start, lower = lower, upper = upper, optim.method = optim.method,
+                                                                                                optim.control = optim.control, estimate.variance = estimate.variance,
+                                                                                                hideWarnings = hideWarnings), itau = fitCopula.itau(copula,
+                                                                                                                                                    data, estimate.variance = estimate.variance), irho = fitCopula.irho(copula,
                                                                                                                                                                                                                         data, estimate.variance = estimate.variance))
 }
 
-loglikCopula <- function (param, x, copula, hideWarnings) 
+loglikCopula <- function (param, x, copula, hideWarnings)
 {
   stopifnot(length(copula@parameters) == length(param))
-  if (!missing(hideWarnings)) 
+  if (!missing(hideWarnings))
     warning("'hideWarnings' is deprecated and has no effect anymore")
   copula@parameters <- param
-  if (chkParamBounds(copula)) { 
+  if (chkParamBounds(copula)) {
     #        cat(sum(dCopula(x, copula, log = TRUE, checkPar = FALSE)))
     #        cat("\n")
     retval <- max(-10^6, sum(dCopula(x, copula, log = TRUE, checkPar = FALSE)))
@@ -122,29 +122,29 @@ loglikCopula <- function (param, x, copula, hideWarnings)
   return(retval)
 }
 
-fitCopStart <- function (copula, data, default = copula@parameters) 
+fitCopStart <- function (copula, data, default = copula@parameters)
 {
   if (hasMethod("iTau", clc <- class(copula))) {
     ccl <- getClass(clc)
     .par.df <- has.par.df(copula, ccl)
-    start <- fitCopula.itau(if (.par.df) 
+    start <- fitCopula.itau(if (.par.df)
       as.df.fixed(copula, ccl)
       else copula, data, estimate.variance = FALSE, warn.df = FALSE)@estimate
-    if (.par.df) 
+    if (.par.df)
       start <- c(start, copula@df)
-    if (!is.finite(loglikCopula(start, data, copula))) 
+    if (!is.finite(loglikCopula(start, data, copula)))
       default
     else start
   }
   else default
 }
 
-fitCopula.itau <- function (copula, x, estimate.variance, warn.df = TRUE) 
+fitCopula.itau <- function (copula, x, estimate.variance, warn.df = TRUE)
 {
   ccl <- getClass(class(copula))
   isEll <- extends(ccl, "ellipCopula")
   if (has.par.df(copula, ccl, isEll)) {
-    if (warn.df) 
+    if (warn.df)
       warning("\"itau\" fitting ==> copula coerced to 'df.fixed=TRUE'")
     copula <- as.df.fixed(copula, classDef = ccl)
   }
@@ -154,30 +154,30 @@ fitCopula.itau <- function (copula, x, estimate.variance, warn.df = TRUE)
   itau <- P2p(itau)
   if(ncol(x) > 2) {
     X <- getXmat(copula)
-    estimate <- as.vector(if (isEll && copula@dispstr == "ar1") 
+    estimate <- as.vector(if (isEll && copula@dispstr == "ar1")
       exp(lm.fit(X, y = log(itau))$coefficients)
       else lm.fit(X, y = itau)$coefficients)
   } else {
     estimate <- itau
   }
   copula@parameters <- estimate
-  var.est <- if (is.na(estimate.variance) || estimate.variance) 
+  var.est <- if (is.na(estimate.variance) || estimate.variance)
     varKendall(copula, x)/nrow(x)
   else matrix(NA, q, q)
-  new("fitCopula", estimate = estimate, var.est = var.est, 
-      method = "inversion of Kendall's tau", loglik = NA_real_, 
-      fitting.stats = list(convergence = NA_integer_), nsample = nrow(x), 
+  new("fitCopula", estimate = estimate, var.est = var.est,
+      method = "inversion of Kendall's tau", loglik = NA_real_,
+      fitting.stats = list(convergence = NA_integer_), nsample = nrow(x),
       copula = copula)
 }
 
-has.par.df <- function (cop, classDef = getClass(class(cop)), isEllip = extends(classDef, 
-                                                                                "ellipCopula")) 
+has.par.df <- function (cop, classDef = getClass(class(cop)), isEllip = extends(classDef,
+                                                                                "ellipCopula"))
 {
-  ((isEllip && extends(classDef, "tCopula")) || extends(classDef, 
+  ((isEllip && extends(classDef, "tCopula")) || extends(classDef,
                                                         "tevCopula")) && !cop@df.fixed
 }
 
-fitKendall <- function (cop, tau) 
+fitKendall <- function (cop, tau)
 {
   stopifnot(is.numeric(p <- ncol(tau)), p == nrow(tau))
   sigma <- matrix(1, p, p)
@@ -185,12 +185,12 @@ fitKendall <- function (cop, tau)
     sigma[i, j] <- iTau(cop, tau[i, j])
     sigma[j, i] <- sigma[i, j]
   }
-  if (is(cop, "ellipCopula")) 
+  if (is(cop, "ellipCopula"))
     makePosDef(sigma, delta = 0.001)
   else sigma
 }
 
-makePosDef <- function (mat, delta = 0.00001) 
+makePosDef <- function (mat, delta = 0.00001)
 {
   while(min(eigen(mat)$values) < delta) {
     decomp <- eigen(mat)
@@ -204,22 +204,22 @@ makePosDef <- function (mat, delta = 0.00001)
   return(mat)
 }
 
-getXmat <- function (copula) 
+getXmat <- function (copula)
 {
   p <- copula@dimension
   pp <- p * (p - 1)/2
-  if (!is(copula, "ellipCopula")) 
+  if (!is(copula, "ellipCopula"))
     matrix(1, nrow = pp, ncol = 1)
   else {
-    switch(copula@dispstr, ex = matrix(1, nrow = pp, ncol = 1), 
+    switch(copula@dispstr, ex = matrix(1, nrow = pp, ncol = 1),
            un = diag(pp), toep = , ar1 = {
              dgidx <- outer(1:p, 1:p, "-")
              dgidx <- P2p(dgidx)
-             if (copula@dispstr == "toep") model.matrix(~factor(dgidx) - 
+             if (copula@dispstr == "toep") model.matrix(~factor(dgidx) -
                                                           1) else {
                                                             cbind(dgidx, deparse.level = 0L)
                                                           }
-           }, stop("Not implemented yet for the dispersion structure ", 
+           }, stop("Not implemented yet for the dispersion structure ",
                    copula@dispstr))
   }
 }
@@ -228,14 +228,14 @@ P2p <- function (P) {
   P[lower.tri(P)]
 }
 
-chkParamBounds <- function (copula) 
+chkParamBounds <- function (copula)
 {
   d <- length(param <- copula@parameters)
   m <- length(upper <- copula@param.upbnd)
-  if (d != m) 
+  if (d != m)
     return(FALSE)
   m <- length(lower <- copula@param.lowbnd)
-  if (d != m) 
+  if (d != m)
     return(FALSE)
   !(any(is.na(param) | param > upper | param < lower))
 }
@@ -277,7 +277,6 @@ all_max_lags <- as.character(c(1L)) # use incidence at times t^* and t^* - 1 to 
 all_seasonality_values <- c("TRUE") # only specifications with periodic kernel
 
 bw_parameterization <- "diagonal"
-all_seasons_left_out <- paste0(1997:2010, "/", 1998:2011)
 all_first_test_seasons <- "2011/2012"
 
 prediction_target_var <- "weighted_ili"
@@ -293,28 +292,28 @@ for(first_test_season in all_first_test_seasons) {
             "-seasonality_", seasonality,
             "-season_left_out_", gsub("/", "-", season_left_out)
           )
-          
+
           copula_fits_file_name <- paste0(
             "kcde-copula-fits-",
             copula_fits_case_descriptor,
             ".rds"
           )
-          
+
           if(!file.exists(file.path(save_path, copula_fits_file_name))) {
-            
+
             ## Load data
             data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
-            
+
             data$time <- as.POSIXct(data$time)
-            
+
             ## subset data to be only the region of interest
             data <- data[data$region == data_set,]
-            
+
             ## Subset data to do estimation using only data up through 2010/2011 season
             ## 2011 - 2014 are held out for evaluating performance.
             first_ind_test_season <- min(which(data$season == first_test_season))
             data <- data[seq_len(first_ind_test_season - 1), , drop = FALSE]
-            
+
             ## load saved box-cox transformation parameters and do box-cox transformation
             lambda_case_descriptor <- case_descriptor <- paste0(
               data_set,
@@ -323,7 +322,7 @@ for(first_test_season in all_first_test_seasons) {
               "-seasonality_", seasonality,
               "-season_left_out_", gsub("/", "-", season_left_out)
             )
-            
+
             lambda <- readRDS(
               file = file.path("inst/estimation/kcde/fits",
                 paste0("box_cox_lambda-",
@@ -331,38 +330,38 @@ for(first_test_season in all_first_test_seasons) {
                   ".rds")
               )
             )
-            
+
             data$box_cox_trans_weighted_ili <- BoxCox(data$weighted_ili, lambda)
-            
-            
+
+
             copula_fits <- vector("list", last_analysis_time_season_week - first_analysis_time_season_week + 1)
             copula_fits_ind <- 1L
-            
+
             cat(paste0("seasonality = ", seasonality, "\n"))
             cat(paste0("bw_parameterization = ", bw_parameterization, "\n"))
-            
+
             copula_train_seasons <- all_seasons_left_out[all_seasons_left_out != season_left_out]
-              
-            
+
+
             ## We obtain a separate copula estimate for each combination of
             ## data set and number of weeks left in season
             ## omit the last week since there is only a prediction horizon of 1 then.
             for(analysis_time_season_week in seq(from = first_analysis_time_season_week, to = last_analysis_time_season_week - 1)) {
               cat(paste0("analysis_time_season_week = ", analysis_time_season_week, "\n"))
-              
+
               ## Assemble matrix of probability-integral-transformed observed incidence trajectories in each season
               ## The estimated KCDE density is used for the integral transform.
               ## Rows correspond to seasons, columns to prediction horizons
               max_prediction_horizon <-
                 first_analysis_time_season_week + season_length - 1 -
                 analysis_time_season_week
-              
+
               pit_incidence_trajectories <- t(sapply(copula_train_seasons,
                 function(train_season) {
                   ## Calculate conditional probability that incidence <= observed
                   ## incidence for each prediction horizon separately
                   analysis_time_ind <- which(data$season == train_season & data$season_week == analysis_time_season_week)
-                  
+
                   sapply(seq_len(max_prediction_horizon),
                     function(prediction_horizon) {
                       case_descriptor <- paste0(
@@ -372,11 +371,11 @@ for(first_test_season in all_first_test_seasons) {
                         "-seasonality_", seasonality,
                         "-season_left_out_", gsub("/", "-", season_left_out)
                       )
-                      
+
                       kcde_fit_file_path <- file.path(estimation_results_path,
                         paste0("kcde_fit-", case_descriptor, ".rds"))
                       kcde_fit <- readRDS(kcde_fit_file_path)
-                      
+
                       ## Get the probability integral transforms of the observed incidence trajectories.
                       tryCatch(
                         kcde_predict(
@@ -405,7 +404,7 @@ for(first_test_season in all_first_test_seasons) {
                   )
                 }
               ))
-              
+
               ## Drop NA rows
               ## These may occur in early seasons if lag > 0 was used
               na_rows <- which(apply(pit_incidence_trajectories, 1, function(pit_row) {any(is.na(pit_row))}))
@@ -416,7 +415,7 @@ for(first_test_season in all_first_test_seasons) {
               ## give values of 0 or 1.  We require values between 0 and 1 for copula
               pit_incidence_trajectories[pit_incidence_trajectories == 0] <- 10^-6
               pit_incidence_trajectories[pit_incidence_trajectories == 1] <- 1 - 10^-6
-              
+
               ## Fit copula
               copula_fit <- fitCopula(
                 copula = normalCopula(param = rep(0.3, max_prediction_horizon - 1),
@@ -426,16 +425,16 @@ for(first_test_season in all_first_test_seasons) {
                 estimate.variance = TRUE,
                 method = "ml",
                 optim.method = "L-BFGS-B")
-              
+
               copula_fits[[copula_fits_ind]] <- list(
                 analysis_time_season_week = analysis_time_season_week,
                 pit_incidence_trajectories = pit_incidence_trajectories,
                 copula_fit = copula_fit
               )
-              
+
               copula_fits_ind <- copula_fits_ind + 1L
             }
-            
+
             saveRDS(copula_fits,
                     file = file.path(save_path, copula_fits_file_name))
           } # file doesn't already exist
