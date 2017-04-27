@@ -1512,6 +1512,33 @@ Continued investigation, application, and innovation is necessary to strengthen 
 
 This work was supported by Award Number R35GM119582 from the National Institute Of General Medical Sciences and Defense Advanced Projects Research Agency Young Faculty Award Number Dl6AP00144. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institute Of General Medical Sciences, the National Institutes of Health, or the Defense Advanced Projects Research Agency.  The funders had no role in study design, data collection and analysis, decision to publish, or preparation of the manuscript.
 
+```{r test-phase-plot-summary, eval=FALSE}
+## plots created for MIDAS meeting evaluation
+target_to_plot <- "Peak Incidence"
+preds_to_plot <- filter(preds, 
+                        prediction_target==target_to_plot, 
+                        region %in% c("National", "Region1", "Region7"))
+
+## three reds, blues and blacks
+# cols <- c(RColorBrewer::brewer.pal(4, "Reds")[2:4],
+#           RColorBrewer::brewer.pal(9, "Blues")[2:9])
+cols <- c("KDE" = RColorBrewer::brewer.pal(4, "Reds")[2],
+          "KCDE" = RColorBrewer::brewer.pal(4, "Reds")[3],
+          "SARIMA" = RColorBrewer::brewer.pal(4, "Reds")[4],
+          "EW" = RColorBrewer::brewer.pal(9, "Blues")[3],
+          "CW" = RColorBrewer::brewer.pal(9, "Blues")[3],
+          "FW-wu" = RColorBrewer::brewer.pal(9, "Blues")[3],
+          "FW-reg-w" = RColorBrewer::brewer.pal(9, "Blues")[9],
+          "FW-reg-wu" = RColorBrewer::brewer.pal(9, "Blues")[3],
+          "FW-reg-wui" = RColorBrewer::brewer.pal(9, "Blues")[3])
+ggplot(preds_to_plot, aes(x=analysis_time_season_week, y=log_score, color=model)) +
+    geom_line(alpha=.8) + scale_color_manual(values=cols) +
+    facet_grid(region~analysis_time_season) +
+    xlab("season week") + ylab("log score") +
+    ggtitle(target_to_plot)
+```
+
+
 \nolinenumbers
 
 \bibliographystyle{plos2015}
