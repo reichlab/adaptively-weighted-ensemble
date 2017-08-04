@@ -1,0 +1,1894 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Jacobs Landscape Poster
+% LaTeX Template
+% Version 1.0 (29/03/13)
+%
+% Created by:
+% Computational Physics and Biophysics Group, Jacobs University
+% https://teamwork.jacobs-university.de:8443/confluence/display/CoPandBiG/LaTeX+Poster
+%
+% Further modified by:
+% Nathaniel Johnston (nathaniel@njohnston.ca)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%  PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[final]{beamer}
+
+\usepackage[scale=1.24]{beamerposter} % Use the beamerposter package for laying out the poster
+\usepackage{microtype}
+\usepackage{cite}
+\usepackage{multirow}
+\usepackage{hhline}
+\usepackage{enumerate}
+\usepackage[english]{babel}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{dcolumn}
+\usepackage{caption} %font size of captions
+%\usepackage{subcaption}
+
+%% for row colors
+\usepackage{xcolor,colortbl}
+\definecolor{silver}{RGB}{192, 192, 192}
+
+\usetheme{confposter} % Use the confposter theme supplied with this template
+
+\setbeamercolor{block title}{fg=Maroon,bg=white} % Colors of the block titles
+\setbeamercolor{block body}{fg=black,bg=white} % Colors of the body of blocks
+\setbeamercolor{block alerted title}{fg=white,bg=Maroon} % Colors of the highlighted block titles
+\setbeamercolor{block alerted body}{fg=black,bg=dblue!10} % Colors of the body of highlighted blocks
+\setbeamerfont{block body}{family=\rmfamily,size={\fontsize{32}{32}}}
+\setbeamerfont{block alerted body}{family=\rmfamily,size={\fontsize{32}{32}}}
+\setbeamerfont{block alerted title}{family=\rmfamily,size={\fontsize{32}{36}}}
+\setbeamerfont{block title}{family=\rmfamily,size={\fontsize{36}{36}}}
+\setbeamerfont{title in headline}{family=\rmfamily,size={\fontsize{36}{40}}}
+\setbeamerfont{itemize/enumerate body}{size={\fontsize{36}{36}}}
+\setbeamerfont{itemize/enumerate subbody}{size={\fontsize{36}{36}}}
+
+\setbeamerfont{block body}{family=\rmfamily,size={\fontsize{36}{36}}}
+\setbeamerfont{block alerted body}{family=\rmfamily,size={\fontsize{36}{36}}}
+\setbeamerfont{block alerted title}{family=\rmfamily,size={\fontsize{36}{40}}}
+\setbeamerfont{block title}{family=\rmfamily,size={\fontsize{40}{40}}}
+\setbeamerfont{title in headline}{family=\rmfamily,size={\fontsize{40}{44}}}
+\setbeamerfont{itemize/enumerate body}{size={\fontsize{36}{36}}}
+\setbeamerfont{itemize/enumerate subbody}{size={\fontsize{36}{36}}}
+
+
+
+
+\captionsetup{font=scriptsize, labelfont=scriptsize}
+% Many more colors are available for use in beamerthemeconfposter.sty
+
+%-----------------------------------------------------------
+% Define the column widths and overall poster size
+% To set effective sepwid, onecolwid and twocolwid values, first choose how many columns you want and how much separation you want between columns
+% In this template, the separation width chosen is 0.024 of the paper width and a 4-column layout
+% onecolwid should therefore be (1-(# of columns+1)*sepwid)/# of columns e.g. (1-(4+1)*0.024)/4 = 0.22
+% Set twocolwid to be (2*onecolwid)+sepwid = 0.464
+% Set threecolwid to be (3*onecolwid)+2*sepwid = 0.708
+
+\newlength{\sepwid}
+\newlength{\onecolwid}
+\newlength{\twocolwid}
+\newlength{\threecolwid}
+\newlength{\oneoftwocolwid}
+\newlength{\oneoftwosepwid}
+\setlength{\paperwidth}{36.5in} % A0 width: 46.8in
+\setlength{\paperheight}{20.5in} % A0 height: 33.1in
+\setlength{\sepwid}{0.012\paperwidth} % Separation width (white space) between columns
+\setlength{\onecolwid}{0.3\paperwidth} % Width of one column
+\setlength{\twocolwid}{0.612\paperwidth} % Width   of two columns
+\setlength{\threecolwid}{0.924\paperwidth} % Width of three columns
+\setlength{\oneoftwocolwid}{0.475\paperwidth} % Width of one column
+\setlength{\oneoftwosepwid}{0.05\paperwidth} % Width of one column
+%\setlength{\onecolwid}{0.235\paperwidth} % Width of one column
+%\setlength{\twocolwid}{0.482\paperwidth} % Width of two columns
+%\setlength{\threecolwid}{0.729\paperwidth} % Width of three columns
+\setlength{\topmargin}{-0.75in} % Reduce the top margin size
+% \setlength{\parindent}{1cm}
+\newcommand{\tab}{\hspace*{1em}}
+%-----------------------------------------------------------
+
+\usepackage{graphicx}  % Required for including images
+
+\usepackage{booktabs} % Top and bottom rules for tables
+
+\include{GrandMacros}
+
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+
+\title{Model Averaging for Probabilistic Time Series Forecasts} % Poster title
+
+\author{Evan L. Ray, Nicholas G. Reich}
+% Author(s)
+
+\institute{University of Massachusetts, Amherst} % Institution(s)
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+
+<<loadPackages, echo=FALSE>>=
+library("ggplot2")
+library("grid")
+library("stringr")
+library("reshape2")
+library("plyr")
+suppressMessages(library("dplyr"))
+suppressMessages(library("tidyr"))
+suppressMessages(library("lubridate"))
+library("MMWRweek")
+library("KoTflu20162017")
+library("forecast")
+library("kcde")
+library("copula")
+library("FluSight")
+library("xgboost")
+library("xgbstack")
+library("awes")
+library("mosaic")
+library("gridExtra")
+#library("cowplot")
+@
+
+\addtobeamertemplate{block end}{}{\vspace*{1ex}} % White space under blocks
+\addtobeamertemplate{block alerted end}{}{\vspace*{1ex}} % White space under highlighted (alert) blocks
+
+\setlength{\belowcaptionskip}{0ex} % White space under figures
+\setlength\belowdisplayshortskip{1ex} % White space under equations
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\onecolwid} % The first column
+
+\begin{block}{Introduction}
+\begin{itemize}
+\item Predictions of infectious disease are helpful to public health decision
+makers.
+\item We focus on three quantities:
+  \begin{enumerate}
+  \item timing of season onset
+  \item timing of season peak week
+  \item incidence in season peak week
+  \end{enumerate}
+\end{itemize}
+
+<<prediction_targets_plot, echo=FALSE, cache=TRUE, fig.height=6>>=
+flu_data$region[flu_data$region == "X"] <- "National"
+flu_data$region <- factor(flu_data$region,
+  levels = c("National", paste0("Region ", 1:10)))
+
+current_ili_data <- flu_data %>%
+      filter(region == "National" & season == "2016/2017" & season_week <= 16)
+
+imaginary_season_weeks <- 16:52
+imaginary_ili_data <- data.frame(
+  season_week = imaginary_season_weeks,
+  weighted_ili = 4.5 - 0.01 * (imaginary_season_weeks - 33)^2
+)
+imaginary_ili_data$weighted_ili[1] <- tail(current_ili_data$weighted_ili, 1)
+
+peak_df <- data.frame(
+  season_week = c(0, 33),
+  weighted_ili = rep(imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 33], 2)
+)
+
+peak_df2 <- data.frame(
+  season_week = c(33, 33),
+  weighted_ili = c(0, imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 33])
+)
+
+onset_df <- data.frame(
+  season_week = c(18, 18),
+  weighted_ili = c(0, imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 18])
+)
+
+p <- ggplot() +
+  geom_path(aes(x = season_week, y = weighted_ili),
+    data = current_ili_data) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "black", linetype = 2, data = imaginary_ili_data) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = peak_df) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = peak_df2) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = onset_df) +
+  geom_hline(yintercept = 2.1, colour = "red", linetype = 2) +
+  xlab("Week of Season") +
+  ylab("Weighted Proportion of\nDoctor Visits with\nInfluenza-Like Illness") +
+  coord_cartesian(xlim = c(1, 52), ylim = c(0, 6), expand = FALSE) +
+#  ggtitle("Flu Incidence So Far in the 2016/2017 Season") +
+  theme_bw(base_size = 32) +
+  theme(legend.position = "none")
+
+print(p)
+@
+
+\begin{itemize}
+\item Predictions updated weekly.
+\item Relative performance of different models varies.
+\item Can we combine predictions from these models to improve performance?
+\end{itemize}
+\end{block}
+
+\end{column}
+
+\begin{column}{\onecolwid}
+\begin{block}{Data}
+
+<<raw_data_plot, echo=FALSE, cache=TRUE, fig.height=15, fig.width = 9>>=
+regions_to_plot <- c("National", "Region 1", "Region 7")
+#regions_to_plot <- c("National", paste0("Region ", 1:10))
+
+train_cutoff_ind <- min(which(flu_data$season == "2011/2012"))
+train_cutoff_time <- flu_data$time[train_cutoff_ind]
+train_cutoffs <- data.frame(
+  region = regions_to_plot,
+  train_cutoff_time = as.numeric(as.Date(train_cutoff_time))
+)
+
+ggplot() +
+  geom_line(aes(x = as.Date(time), y = weighted_ili),
+    data = flu_data[flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = as.numeric(as.Date(time))),
+    colour = "grey",
+    data = flu_data[is.na(flu_data$weighted_ili) & flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = train_cutoff_time),
+    colour = "red",
+    linetype = 2,
+    data = train_cutoffs) +
+  facet_wrap(~ region, ncol = 1) +
+  scale_x_date() +
+  xlab("Time") +
+  ylab("Weighted Proportion of Doctor's Office Visits\nwith Influenza-like Illness") +
+#  ggtitle("Influenza Data by Region")
+  theme_bw(base_size = 32)
+@
+\end{block}
+
+\end{column}
+
+\begin{column}{\onecolwid}
+
+\begin{block}{Component Models}
+\begin{itemize}
+\item Our ensembles combine predictions from three component models:
+  \begin{enumerate}
+  \item Kernel Density Estimation (KDE)
+    \begin{itemize}
+    \item separate distribution estimates for each target based on observed values in training-phase seasons
+    \item predictions do not change over the season
+    \end{itemize}
+  \item Kernel Conditional Density Estimation (KCDE) with Copulas
+    \begin{itemize}
+    \item KCDE: separate predictive distributions for flu incidence in each future week of the season given recent observations of wILI and the current week of the season.
+    \item Copula: model dependence among incidence in different weeks
+    \item Get predictive distributions for onset timing, peak timing, and peak incidence as integrals of joint distribution for incidence in all remaining weeks
+    \end{itemize}
+  \item Seasonal Auto-Regressive Integrated Moving Average (SARIMA)
+    \begin{itemize}
+    \item Log-transform wILI, first-order seasonal differencing
+    \item Integrate to obtain predictive distributions for onset timing, peak timing, and peak incidence as with KCDE
+    \end{itemize}
+  \end{enumerate}
+\end{itemize}
+\end{block}
+
+\vskip7cm
+
+\scriptsize{This work was supported by the National Institute of Allergy and
+Infectious Diseases at the National Institutes of Health (grants R21AI115173,
+R01AI102939, and R35GM119582).}
+
+\end{column} % End of the fourth column
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+
+
+
+
+
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\onecolwid}
+\begin{block}{Performance Varies with Week}
+<<log_scores_vs_week, echo=FALSE, cache=TRUE, fig.height=15, fig.width = 10>>=
+awes_path <- find.package("awes")
+
+
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+regions_to_plot <- c("National", "Region1", "Region7")
+
+log_scores_with_confidence <- bind_rows(
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "onset",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "onset"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_week",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "peak_week"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_inc",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "peak_inc")
+)
+
+log_scores_with_confidence_long <- left_join(
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    gather_("model", "log_score",
+      c("kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 10)),
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target",
+      "kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    gather_("model", "model_confidence",
+      c("kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 17)),
+  by = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "model")
+)
+
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "onset"] <- "Onset Timing"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_inc"] <- "Peak Incidence"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_week"] <- "Peak Timing"
+log_scores_with_confidence_long$prediction_target <- factor(log_scores_with_confidence_long$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+summarized_log_scores <- log_scores_with_confidence_long %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
+  group_by(model, region, prediction_target, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model))
+summarized_log_scores$smoothed_log_score <- NA
+summarized_log_scores$smoothed_max_log_score <- NA
+summarized_log_scores$smoothed_min_log_score <- NA
+for(region_val in unique(summarized_log_scores$region)) {
+  for(model_val in unique(summarized_log_scores$model)) {
+    for(prediction_target_val in unique(summarized_log_scores$prediction_target)) {
+      if(identical(prediction_target_val, "Peak Incidence")) {
+        loess_span <- 0.5
+      } else {
+        loess_span <- 0.75
+      }
+      inds <- (summarized_log_scores$region == region_val &
+        summarized_log_scores$model == model_val &
+        summarized_log_scores$prediction_target == prediction_target_val)
+      if(sum(inds) == 1 || model_val == "kde") {
+        summarized_log_scores$smoothed_log_score[inds] <-
+          summarized_log_scores$mean_log_score[inds]
+        summarized_log_scores$smoothed_max_log_score[inds] <-
+          summarized_log_scores$max_log_score[inds]
+        summarized_log_scores$smoothed_min_log_score[inds] <-
+          summarized_log_scores$min_log_score[inds]
+      } else {
+        summarized_log_scores$smoothed_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(log_score ~ analysis_time_season_week, data = log_scores_with_confidence_long %>%
+                filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+                  region == region_val &
+                  model == model_val &
+                  prediction_target == prediction_target_val),
+                span = loess_span
+                )
+              ),
+            newdata = summarized_log_scores[inds, ]
+        ))
+        summarized_log_scores$smoothed_max_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(max_log_score ~ analysis_time_season_week, data = summarized_log_scores[inds, ],
+                span = loess_span))
+            ))
+        summarized_log_scores$smoothed_min_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(min_log_score ~ analysis_time_season_week, data = summarized_log_scores[inds, ],
+                span = loess_span))
+          ))
+      }
+    }
+  }
+}
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "onset"] <- "Onset Timing"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_inc"] <- "Peak Incidence"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_week"] <- "Peak Timing"
+summarized_log_scores$prediction_target <- factor(summarized_log_scores$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+log_scores_with_confidence_long <-
+  log_scores_with_confidence_long  %>%
+  mutate(Model = toupper(model))
+
+regions_to_plot <- c("National", "Region 1", "Region 7")
+
+StatChull <- ggproto("StatChull", Stat,
+  compute_group = function(data, scales) {
+    data[chull(data$x, data$y), , drop = FALSE]
+  },
+
+  required_aes = c("x", "y")
+)
+
+stat_chull <- function(mapping = NULL, data = NULL, geom = "polygon",
+                       position = "identity", na.rm = FALSE, show.legend = NA,
+                       inherit.aes = TRUE, ...) {
+  ggplot2::layer(
+    stat = StatChull, data = data, mapping = mapping, geom = geom,
+    position = position, show.legend = show.legend, inherit.aes = inherit.aes,
+    params = list(na.rm = na.rm, ...)
+  )
+}
+
+
+ggplot() +
+  stat_chull(
+    aes(x = analysis_time_season_week, y = log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = log_scores_with_confidence_long[log_scores_with_confidence_long$region %in% regions_to_plot, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = smoothed_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  geom_point(aes(x = analysis_time_season_week, y = log_score, colour = Model, shape = Model),
+    alpha = 0.25,
+    position = position_jitter(),
+    data = log_scores_with_confidence_long[log_scores_with_confidence_long$region %in% regions_to_plot, ]) +
+  scale_colour_manual(values = color_palette) +
+  facet_grid(region ~ prediction_target, scales = "free_x") +
+  xlab("Season Week at Analysis Time") +
+  ylab("Log Score") +
+  ggtitle("Log Scores vs.\nSeason Week at Analysis Time") +
+  theme_bw(base_size = 28)
+@
+\end{block}
+\end{column}
+
+\begin{column}{\onecolwid}
+\begin{block}{Performance Varies with Uncertainty}
+<<log_scores_vs_uncertainty, echo=FALSE, cache=TRUE, fig.height=14, fig.width=11>>=
+awes_path <- find.package("awes")
+
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+regions_to_plot <- c("National", "Region1", "Region7")
+
+log_scores_with_confidence <- bind_rows(
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "onset",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "onset"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_week",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "peak_week"),
+  assemble_stacking_inputs(
+    regions = regions_to_plot,
+    prediction_target = "peak_inc",
+    component_model_names = c("kde", "kcde", "sarima"),
+    explanatory_variables = c("analysis_time_season_week",
+      "kcde_model_confidence",
+      "sarima_model_confidence"),
+    include_model_performance = TRUE,
+    preds_path = file.path(awes_path, "estimation/loso-predictions")
+  ) %>%
+    mutate(prediction_target = "peak_inc")
+)
+
+log_scores_with_confidence_long <- left_join(
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    gather_("model", "log_score",
+      c("kcde_log_score", "kde_log_score", "sarima_log_score")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 10)),
+  log_scores_with_confidence %>%
+    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target",
+      "kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    gather_("model", "model_confidence",
+      c("kcde_model_confidence", "kde_model_confidence", "sarima_model_confidence")) %>%
+    mutate(model = substr(model, 1, nchar(model) - 17)),
+  by = c("region", "analysis_time_season", "analysis_time_season_week",
+      "prediction_target", "model")
+)
+
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "onset"] <- "Onset Timing"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_inc"] <- "Peak Incidence"
+log_scores_with_confidence_long$prediction_target[log_scores_with_confidence_long$prediction_target == "peak_week"] <- "Peak Timing"
+log_scores_with_confidence_long$prediction_target <- factor(log_scores_with_confidence_long$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+summarized_log_scores <- log_scores_with_confidence_long %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016)) %>%
+  group_by(model, region, prediction_target, model_confidence) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model))
+summarized_log_scores$smoothed_log_score <- NA
+summarized_log_scores$smoothed_max_log_score <- NA
+summarized_log_scores$smoothed_min_log_score <- NA
+for(region_val in unique(summarized_log_scores$region)) {
+  for(model_val in unique(summarized_log_scores$model)) {
+    for(prediction_target_val in unique(summarized_log_scores$prediction_target)) {
+      if(identical(prediction_target_val, "Peak Incidence")) {
+        loess_span <- 0.5
+      } else {
+        loess_span <- 0.75
+      }
+      inds <- (summarized_log_scores$region == region_val &
+        summarized_log_scores$model == model_val &
+        summarized_log_scores$prediction_target == prediction_target_val)
+      if(sum(inds) == 1 || model_val == "kde") {
+        summarized_log_scores$smoothed_log_score[inds] <-
+          summarized_log_scores$mean_log_score[inds]
+        summarized_log_scores$smoothed_max_log_score[inds] <-
+          summarized_log_scores$max_log_score[inds]
+        summarized_log_scores$smoothed_min_log_score[inds] <-
+          summarized_log_scores$min_log_score[inds]
+      } else {
+        summarized_log_scores$smoothed_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(log_score ~ model_confidence, data = log_scores_with_confidence_long %>%
+                filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+                  region == region_val &
+                  model == model_val &
+                  prediction_target == prediction_target_val),
+                span = loess_span
+                )
+              ),
+            newdata = summarized_log_scores[inds, ]
+        ))
+        summarized_log_scores$smoothed_max_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(max_log_score ~ model_confidence, data = summarized_log_scores[inds, ],
+                span = loess_span))
+            ))
+        summarized_log_scores$smoothed_min_log_score[inds] <-
+          suppressWarnings(predict(
+            suppressWarnings(
+              loess(min_log_score ~ model_confidence, data = summarized_log_scores[inds, ],
+                span = loess_span))
+          ))
+      }
+    }
+  }
+}
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "onset"] <- "Onset Timing"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_inc"] <- "Peak Incidence"
+summarized_log_scores$prediction_target[summarized_log_scores$prediction_target == "peak_week"] <- "Peak Timing"
+summarized_log_scores$prediction_target <- factor(summarized_log_scores$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+log_scores_with_confidence_long <-
+  log_scores_with_confidence_long  %>%
+  mutate(Model = toupper(model))
+
+regions_to_plot <- c("National", "Region 1", "Region 7")
+
+ggplot() +
+  stat_chull(
+    aes(x = model_confidence, y = log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = log_scores_with_confidence_long[log_scores_with_confidence_long$region %in% regions_to_plot, ]) +
+  geom_line(
+    aes(x = model_confidence,
+      y = smoothed_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$region %in% regions_to_plot, ]) +
+  geom_point(aes(x = model_confidence, y = log_score, colour = Model, shape = Model),
+    alpha = 0.25,
+    position = position_jitter(),
+    data = log_scores_with_confidence_long[log_scores_with_confidence_long$region %in% regions_to_plot, ]) +
+  scale_colour_manual(values = color_palette) +
+  facet_grid(region ~ prediction_target, scales = "free_x") +
+  xlab("Model Uncertainty") +
+  ylab("Log Score") +
+  ggtitle("Log Scores vs. Model Uncertainty") +
+  theme_bw(base_size = 28)
+@
+\end{block}
+\end{column}
+
+\begin{column}{\onecolwid}
+\begin{block}{Ensemble Models}
+\begin{itemize}
+\item The ensemble models we consider are \textit{weighted averages} of the component models:
+\begin{equation*}
+f(y|\bx) = \Sigma_{m = 1}^M \pi_m(\bx) f_m(y|\bx) \text{, where} \label{eqn:EnsembleModel}
+\end{equation*}
+  \begin{itemize}
+    \item $y$ is a possible value for one of the prediction targets
+    \item $\bx$ is a vector of covariates such as recent incidence, time of year at which we are making the predictions, ...
+    \item $f_m(\cdot)$ are predictive distributions from $M = 3$ component models
+    \item $\pi_m(\bx)$ are model weights with $\Sigma_{m=1}^M \pi_m(\bx) = 1 \, \forall \bx$
+  \end{itemize}
+\item We consider six variations:
+\end{itemize}
+
+{\footnotesize
+\begin{table}[!ht]
+\centering
+\begin{tabular}{rcccccc}
+\toprule
+         & \multicolumn{6}{c}{Component Model Weights Vary with...} \\
+\cline{2-7}
+  &   & Prediction & Week of & SARIMA & KCDE & Current \\
+Model & Region & Target & Season & Uncertainty & Uncertainty & wILI \\
+  \hline
+EW         &   &   &   &   &   &   \\
+CW        & X & X &   &   &   &   \\
+FW         & X & X & X & X & X &   \\
+FW-reg-w   & X & X & X &   &   &   \\
+FW-reg-wu  & X & X & X & X & X &   \\
+FW-reg-wui & X & X & X & X & X & X \\
+\bottomrule
+\end{tabular}
+\end{table}
+}
+
+\begin{itemize}
+\item Weighting functions estimated via gradient tree boosting
+\end{itemize}
+
+\end{block}
+\end{column}
+
+%\begin{enumerate}
+%\item Equal Weights (\textbf{EW}): $\pi_m(\bx_t) = 1/M$.
+%\item Constant model weights (\textbf{dEM}): $\pi_m(\bx_t) = c_m$
+%\item Feature-weighted, unregularized (\textbf{FW}): $\pi_m(\bx_t)$ depends on features including week of the season and model uncertainty for the KCDE and SARIMA models.
+%\item Feature-weighted with regularization: $\pi_m(\bx_t)$ depends on features, but with regularization.  Three variations:
+%  \begin{enumerate}
+%  \item \textbf{FW-reg-w}: week of the season;
+%  \item \textbf{FW-reg-wu}: week of the season, model uncertainty
+%  \item \textbf{FW-reg-wui}: week of the season, model uncertainty, and incidence (wILI) in the most recent week.
+%  \end{enumerate}
+%\end{enumerate}
+%\item Separate weight estimates for each combination of region and prediction target
+
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+
+
+
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\oneoftwosepwid}
+\end{column}
+
+\begin{column}{\oneoftwocolwid} % The first column
+
+\begin{block}{Weights as a Function of Week}
+<<log_scores_and_weights_vs_analysis_time_setup, echo=FALSE, cache=TRUE>>=
+get_legend_grob <- function(x) {
+  data <- ggplot2:::ggplot_build(x)
+
+  plot <- data$plot
+  panel <- data$panel
+  data <- data$data
+  theme <- ggplot2:::plot_theme(plot)
+  position <- theme$legend.position
+  if (length(position) == 2) {
+    position <- "manual"
+  }
+
+  legend_box <- if (position != "none") {
+    ggplot2:::build_guides(plot$scales, plot$layers, plot$mapping,
+      position, theme, plot$guides, plot$labels)
+  } else {
+    ggplot2:::zeroGrob()
+  }
+  if (ggplot2:::is.zero(legend_box)) {
+    position <- "none"
+  }
+  else {
+    legend_width <- gtable:::gtable_width(legend_box) + theme$legend.margin
+    legend_height <- gtable:::gtable_height(legend_box) + theme$legend.margin
+    just <- valid.just(theme$legend.justification)
+    xjust <- just[1]
+    yjust <- just[2]
+    if (position == "manual") {
+      xpos <- theme$legend.position[1]
+      ypos <- theme$legend.position[2]
+      legend_box <- editGrob(legend_box, vp = viewport(x = xpos,
+        y = ypos, just = c(xjust, yjust), height = legend_height,
+        width = legend_width))
+    }
+    else {
+      legend_box <- editGrob(legend_box, vp = viewport(x = xjust,
+        y = yjust, just = c(xjust, yjust)))
+    }
+  }
+  return(legend_box)
+}
+
+
+awes_path <- find.package("awes")
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+log_scores <- bind_rows(
+    assemble_predictions(
+      preds_path = file.path(awes_path, "estimation/loso-predictions"),
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    )
+  ) %>%
+  gather_("prediction_target", "log_score",
+    paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
+  mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "onset" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+awes_path <- find.package("awes")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "onset") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_onset_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_onset_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+#  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 28) +
+  theme(axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_onset_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 28) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+
+component_legend <- get_legend_grob(p_onset_scores)
+p_onset_scores <- p_onset_scores +
+  theme(legend.position = "none")
+
+ensemble_legend <- get_legend_grob(
+  ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      size = ensemble_method
+    ),
+    data = model_weights) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  theme_bw(base_size = 28)
+)
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "peak_week" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "peak_week") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_peak_week_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_peak_week_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+#  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 28) +
+  theme(axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_peak_week_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 28) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+
+
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "peak_inc" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "peak_inc") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_peak_inc_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_peak_inc_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+#  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 28) +
+  theme(axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_peak_inc_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 28) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+@
+
+<<log_scores_and_weights_vs_analysis_time, echo=FALSE, cache=TRUE, fig.height=14.5, fig.width = 15>>=
+grid.newpage()
+blank_height <- 1
+rel_height_lower <- 1.35
+pushViewport(viewport(layout =
+    grid.layout(nrow = 11, ncol = 3,
+      heights = unit(
+        c(2, 1, rel_height_lower, blank_height, 2, 1, rel_height_lower, blank_height, 2, 1, rel_height_lower),
+        rep(c("lines", "lines", "null", "null"), 3)[2:12]),
+      widths = unit(c(5, 4, 1.5), c("lines", "null", "null")))))
+grid.text("A: Onset Timing",
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+grid.text("B: Peak Timing",
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 5, layout.pos.col = 1))
+grid.text("C: Peak Incidence",
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 9, layout.pos.col = 1))
+
+ls_str <- "Log\n  Score"
+mw_str <- "       Model\n        Weight"
+grid.text(ls_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+grid.text(mw_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 3, layout.pos.col = 1))
+grid.text(ls_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 6, layout.pos.col = 1))
+grid.text(mw_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 7, layout.pos.col = 1))
+grid.text(ls_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 10, layout.pos.col = 1))
+grid.text(mw_str,
+  rot = 90,
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 11, layout.pos.col = 1))
+
+print(p_onset_scores, vp = viewport(layout.pos.row = 2, layout.pos.col = 2))
+print(p_onset_weights, vp = viewport(layout.pos.row = 3, layout.pos.col = 2))
+print(p_peak_week_scores, vp = viewport(layout.pos.row = 6, layout.pos.col = 2))
+print(p_peak_week_weights, vp = viewport(layout.pos.row = 7, layout.pos.col = 2))
+print(p_peak_inc_scores, vp = viewport(layout.pos.row = 10, layout.pos.col = 2))
+print(p_peak_inc_weights, vp = viewport(layout.pos.row = 11, layout.pos.col = 2))
+
+pushViewport(viewport(layout.pos.row = 6, layout.pos.col = 3))
+grid.draw(component_legend)
+upViewport()
+pushViewport(viewport(layout.pos.row = 7, layout.pos.col = 3))
+grid.draw(ensemble_legend)
+upViewport()
+@
+\end{block}
+
+\end{column}
+
+\begin{column}{\oneoftwocolwid}
+\begin{block}{Weights as a Function of Week \& Uncertainty}
+<<fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=14.5, fig.width = 18>>=
+get_legend_grob <- function(x) {
+  data <- ggplot2:::ggplot_build(x)
+
+  plot <- data$plot
+  panel <- data$panel
+  data <- data$data
+  theme <- ggplot2:::plot_theme(plot)
+  position <- theme$legend.position
+  if (length(position) == 2) {
+    position <- "manual"
+  }
+
+  legend_box <- if (position != "none") {
+    ggplot2:::build_guides(plot$scales, plot$layers, plot$mapping,
+      position, theme, plot$guides, plot$labels)
+  } else {
+    ggplot2:::zeroGrob()
+  }
+  if (ggplot2:::is.zero(legend_box)) {
+    position <- "none"
+  }
+  else {
+    legend_width <- gtable:::gtable_width(legend_box) + theme$legend.margin
+    legend_height <- gtable:::gtable_height(legend_box) + theme$legend.margin
+    just <- valid.just(theme$legend.justification)
+    xjust <- just[1]
+    yjust <- just[2]
+    if (position == "manual") {
+      xpos <- theme$legend.position[1]
+      ypos <- theme$legend.position[2]
+      legend_box <- editGrob(legend_box, vp = viewport(x = xpos,
+        y = ypos, just = c(xjust, yjust), height = legend_height,
+        width = legend_width))
+    }
+    else {
+      legend_box <- editGrob(legend_box, vp = viewport(x = xjust,
+        y = yjust, just = c(xjust, yjust)))
+    }
+  }
+  return(legend_box)
+}
+
+awes_path <- find.package("awes")
+loso_preds_path <- file.path(awes_path, "estimation/loso-predictions")
+stacking_model_fits_path <- file.path(awes_path, "estimation/xgb-stacking/fits")
+
+component_model_names <- c("kde", "kcde", "sarima")
+region <- "National"
+prediction_target <- "peak_inc"
+explanatory_variables <- "analysis_time_season_week-kcde_model_confidence-sarima_model_confidence"
+explanatory_variables_split <- strsplit(explanatory_variables, "-")[[1]]
+ensemble_model_name <- "xgb_stacking_reg_wu"
+
+weights <- readRDS(
+  file = file.path(stacking_model_fits_path,
+    paste0("model_weights_", region, "_", prediction_target, "_", explanatory_variables, ".rds"))) %>%
+  select_(.dots = c(explanatory_variables_split, paste0(component_model_names, "_log_score_params_combined"))) %>%
+  `colnames<-`(c(explanatory_variables_split, component_model_names)) %>%
+  mutate(region = region,
+    prediction_target = prediction_target)
+
+weights <- weights %>%
+  gather_("model", "weight", c("kde", "kcde", "sarima"))
+
+typical_season_week <- 17L
+if(prediction_target %in% c("onset", "peak_week")) {
+  typical_confidence <- 5L
+} else {
+  typical_confidence <- 20L
+}
+
+p1 <- ggplot(
+  weights %>%
+    filter(sarima_model_confidence == typical_confidence &
+        kcde_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = analysis_time_season_week, y = kcde_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("Season Week at Analysis Time") +
+  ylab("KCDE\nModel Uncertainty") +
+  theme_bw(base_size = 32)
+
+plot_legend <- get_legend_grob(p1)
+
+p1 <- p1 + theme(legend.position = "none")
+
+p2 <- ggplot(
+  weights %>%
+    filter(kcde_model_confidence == typical_confidence &
+        sarima_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = analysis_time_season_week, y = sarima_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("Season Week at Analysis Time") +
+  ylab("SARIMA\nModel Uncertainty") +
+  theme_bw(base_size = 32) +
+  theme(legend.position = "none")
+
+p3 <- ggplot(
+  weights %>%
+    filter(
+      analysis_time_season_week == typical_season_week &
+      kcde_model_confidence %%2 == 1 &
+      sarima_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = kcde_model_confidence, y = sarima_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("KCDE Model Uncertainty") +
+  ylab("SARIMA\nModel Uncertainty") +
+  theme_bw(base_size = 32) +
+  theme(legend.position = "none")
+
+
+grid.newpage()
+num_lines_text <- 3
+pushViewport(viewport(layout =
+    grid.layout(nrow = 6, ncol = 2,
+      heights = unit(
+        c(num_lines_text, 1, num_lines_text, 1, num_lines_text, 1),
+        rep(c("lines", "null"), 3)),
+      widths = unit(c(4, 1), c("null", "null")))))
+grid.text("A: SARIMA Model Uncertainty Fixed at 20",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
+grid.text("B: KCDE Model Uncertainty Fixed at 20",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 3, layout.pos.col = 1:2))
+grid.text("C: Season Week Fixed at 17",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 28),
+  vp = viewport(layout.pos.row = 5, layout.pos.col = 1:2))
+
+print(p1, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+print(p2, vp = viewport(layout.pos.row = 4, layout.pos.col = 1))
+print(p3, vp = viewport(layout.pos.row = 6, layout.pos.col = 1))
+
+pushViewport(viewport(layout.pos.row = 3:4, layout.pos.col = 2))
+grid.draw(plot_legend)
+upViewport()
+@
+\end{block}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+
+
+
+
+
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\onecolwid} % The first column
+
+\begin{block}{Aggregated Results -- All Regions and Test Phase Seasons}
+<<test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=14, fig.width=10>>=
+awes_path <- find.package("awes")
+
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui"),
+  prediction_targets = c("onset", "peak_week", "peak_inc"),
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10)
+  )
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+p <- ggplot() +
+  geom_boxplot(aes(x = model, y = log_score),
+    data = preds) +
+  geom_point(aes(x = model, y = log_score),
+    colour = "red",
+    shape = "+",
+    size = 5,
+    position = position_jitter(width = 1, height = 0),
+    data = preds %>%
+      filter(is.infinite(log_score)) %>%
+      mutate(log_score = -15)) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  xlab("Model") +
+  ylab("Log Score") +
+  theme_bw(base_size = 32) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+suppressWarnings(print(p))
+@
+\end{block}
+\end{column}
+
+
+\begin{column}{\twocolwid}
+
+\begin{block}{Results By Test Phase Season}
+<<test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=15, fig.width = 22>>=
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = gsub(" ", "", region),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+res <- mean(log_score ~ model + prediction_target + analysis_time_season,
+  data = preds[preds$before_target_date == "before\ntarget date", ])
+temp <- strsplit(names(res), ".", fixed = TRUE) %>%
+  unlist() %>%
+  matrix(ncol = 3, byrow = TRUE)
+res <- cbind(temp, res) %>%
+  as.data.frame(stringsAsFactors = FALSE) %>%
+  `colnames<-`(c("model", "prediction_target", "season", "mean_log_score")) %>%
+  `rownames<-`(NULL) %>%
+  group_by_(.dots = c("prediction_target", "season")) %>%
+  mutate(mean_log_score = as.numeric(mean_log_score),
+    rank = rank(-1 * round(as.numeric(mean_log_score), 2)))
+res$prediction_target <- factor(res$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+res$model <- factor(res$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+overall_rank <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Average Rank",
+#        mean_log_score = mean(mean_log_score),
+#        mean_log_score = "",
+        mean_log_score = format(round(mean(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
+        rank = round(mean(as.numeric(rank)), 2)
+        ) %>% ungroup()
+
+minimum_rank <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Rank",
+#        mean_log_score = mean(mean_log_score),
+#        mean_log_score = "",
+        mean_log_score = format(round(max(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
+        rank = round(max(as.numeric(rank)), 2)
+        ) %>% ungroup()
+
+overall_log_score <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Average Log Score",
+        mean_log_score = format(round(mean(mean_log_score), 2), nsmall=2)
+#        rank = NA
+#        mean_log_score = "",
+#        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+    ) %>%
+  ungroup() %>%
+  group_by(prediction_target) %>%
+  mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
+  ungroup()
+
+minimum_log_score <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Log Score",
+        mean_log_score = format(round(min(mean_log_score), 2), nsmall=2)
+#        rank = NA
+#        mean_log_score = "",
+#        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+    ) %>%
+  ungroup() %>%
+  group_by(prediction_target) %>%
+  mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
+  ungroup()
+
+res_with_overall <- bind_rows(
+  res %>%
+    mutate(mean_log_score = format(round(mean_log_score,2), nsmall=2)),
+  overall_rank,
+  minimum_rank,
+  overall_log_score,
+  minimum_log_score)
+
+ggplot(data = res_with_overall, aes(x = model, y = season)) +
+  geom_tile(aes(fill = rank)) +
+  geom_text(aes(label=mean_log_score), size = 12) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  scale_fill_gradient2("Model\nRank",
+    breaks = 1:9,
+#    labels = as.character(1:9),
+    low = "#2166ac",
+    mid = "#f7f7f7",
+    high = "#b2182b",
+    midpoint = 5) +
+#    values = rev(c("#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"))) +
+  xlab("Model") +
+  ylab("Season") +
+  theme_bw(base_size = 32) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+@
+\end{block}
+
+\end{column} % End of the fourth column
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+
+
+
+
+
+
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\twocolwid}
+
+\begin{block}{Log Score Differences for Onset Timing via SARIMA and FW-reg-w}
+<<test_phase_log_scores_by_region_season_difference_density, echo=FALSE, cache=TRUE, fig.height=16, fig.width = 22>>=
+preds_wide <- preds %>%
+  dplyr::filter(before_target_date == "before\ntarget date") %>%
+  dplyr::select(-score) %>%
+  tidyr::spread(model, log_score)
+
+all_models <- unique(preds$model)
+for(model_val in all_models) {
+  preds_wide[[paste0("diff_xgb_stacking_reg_w_vs_", model_val)]] <-
+  preds_wide[["FW-reg-w"]] - preds_wide[[model_val]]
+#    preds_wide[["xgb_stacking_reg_w"]] - preds_wide[[model_val]]
+}
+
+#ggplot(data = preds_wide %>% filter(prediction_target == "onset")) +
+#  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_sarima)) +
+ggplot(data = preds_wide %>% filter(prediction_target == "Onset Timing")) +
+  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_SARIMA)) +
+  geom_vline(xintercept = 0) +
+  geom_vline(aes(xintercept = mean_log_score_diff),
+    color = "red",
+    linetype = 2,
+    data = preds_wide %>% filter(prediction_target == "Onset Timing") %>%
+#    data = preds_wide %>% filter(prediction_target == "onset") %>%
+      group_by(.dots = c("analysis_time_season", "region")) %>%
+      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_SARIMA))) +
+#      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))) +
+#  facet_grid(region ~ analysis_time_season, scales = "free_y") +
+  facet_grid(region ~ analysis_time_season, scales = "fixed") +
+#  scale_y_sqrt() +
+  ylab("Density of Log Score Differences") +
+  xlab("Difference in Log Scores: FW-reg-w - SARIMA") +
+  theme_bw(base_size = 28)
+@
+\end{block}
+\end{column}
+
+\begin{column}{\onecolwid}
+\begin{block}{Log Score Differences for SARIMA and FW-reg-w}
+<<test_phase_log_scores_by_target_difference_density, echo=FALSE, cache=TRUE, fig.height=10, fig.width = 10>>=
+#temp <- preds_wide %>%
+#  group_by(.dots = c("analysis_time_season", "region", "prediction_target")) %>%
+#  summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))
+#
+#ggplot(data = temp) +
+#  geom_density(aes(x = mean_log_score_diff)) +
+#  theme_bw()
+
+
+ggplot(data = preds_wide) +
+  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_SARIMA)) +
+  geom_vline(xintercept = 0) +
+  geom_vline(aes(xintercept = mean_log_score_diff),
+    color = "red",
+    linetype = 2,
+    data = preds_wide %>%
+      group_by(.dots = c("prediction_target")) %>%
+      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_SARIMA))) +
+#      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))) +
+#  facet_grid(region ~ analysis_time_season, scales = "free_y") +
+  facet_wrap( ~ prediction_target, scales = "fixed", ncol = 1) +
+#  scale_y_sqrt() +
+  ylab("Density of Log Score Differences") +
+  xlab("Difference in Log Scores: FW-reg-w - SARIMA") +
+  theme_bw(base_size = 28)
+@
+\end{block}
+
+\begin{block}{Conclusions}
+\begin{itemize}
+\item Ensemble methods had similar performance as the best of the component models in aggregate
+\item Ensemble methods had more stable performance across region-seasons than the component models
+\item In future work, would benefit from using a more diverse set of component models.
+\end{itemize}
+\end{block}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\begin{column}{\sepwid}
+\end{column}
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+
+\end{document}
