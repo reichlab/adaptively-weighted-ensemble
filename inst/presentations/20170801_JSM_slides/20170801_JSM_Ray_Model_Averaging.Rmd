@@ -1,0 +1,567 @@
+---
+title: 'Model Averaging for Probabilistic Time Series Forecasts'
+author: "Evan Ray, Nick Reich <br> Department of Biostatistics and Epidemiology <br> University of Massachusetts, Amherst <br> http://reichlab.io"
+date: "August 1, 2017"
+output:
+  ioslides_presentation:
+    smaller: true
+---
+
+<style>
+h2 {
+  font-size: 35px;
+}
+
+slides > slide > hgroup + article {
+	margin-top: 15px;
+}
+</style>
+
+```{r setup, include=FALSE}
+library("knitr")
+opts_chunk$set(echo = FALSE, fig.path = "Plots/")
+
+library("ggplot2")
+library("grid")
+library("stringr")
+library("reshape2")
+library("plyr")
+library("dplyr")
+library("tidyr")
+library("lubridate")
+library("MMWRweek")
+library("KoTflu20162017")
+library("forecast")
+library("kcde")
+library("copula")
+library("FluSight")
+library("xgboost")
+library("xgbstack")
+library("awes")
+library("mosaic")
+library("gridExtra")
+library("cowplot")
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Flu Data
+
+```{r raw_data_plot, echo=FALSE, cache=TRUE, fig.height=5}
+flu_data$region[flu_data$region == "X"] <- "National"
+flu_data$region <- factor(flu_data$region,
+  levels = c("National", paste0("Region ", 1:10)))
+
+regions_to_plot <- c("National", "Region 1", "Region 7")
+#regions_to_plot <- c("National", paste0("Region ", 1:10))
+  
+train_cutoff_ind <- min(which(flu_data$season == "2011/2012"))
+train_cutoff_time <- flu_data$time[train_cutoff_ind]
+train_cutoffs <- data.frame(
+  region = regions_to_plot,
+  train_cutoff_time = as.numeric(as.Date(train_cutoff_time))
+)
+
+ggplot() +
+  geom_line(aes(x = as.Date(time), y = weighted_ili),
+    data = flu_data[flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = as.numeric(as.Date(time))),
+    colour = "grey",
+    data = flu_data[is.na(flu_data$weighted_ili) & flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
+  geom_vline(aes(xintercept = train_cutoff_time),
+    colour = "red",
+    linetype = 2,
+    data = train_cutoffs) +
+  facet_wrap(~ region, ncol = 1) +
+  scale_x_date() +
+  xlab("Time") +
+  ylab("Weighted Proportion of Doctor's Office Visits\nwith Influenza-like Illness\n") +
+#  ggtitle("Influenza Data by Region")
+  theme_bw(base_size = 12)
+```
+
+## Goal: Predictive Distributions for 3 Targets
+
+1. Peak Incidence
+2. Peak Timing
+3. Onset Timing
+
+```{r prediction_targets_plot, echo=FALSE, cache=TRUE, fig.height=4}
+current_ili_data <- flu_data %>%
+      filter(region == "National" & season == "2016/2017" & season_week <= 16)
+
+imaginary_season_weeks <- 16:52
+imaginary_ili_data <- data.frame(
+  season_week = imaginary_season_weeks,
+  weighted_ili = 4.5 - 0.01 * (imaginary_season_weeks - 33)^2
+)
+imaginary_ili_data$weighted_ili[1] <- tail(current_ili_data$weighted_ili, 1)
+
+peak_df <- data.frame(
+  season_week = c(0, 33),
+  weighted_ili = rep(imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 33], 2)
+)
+
+peak_df2 <- data.frame(
+  season_week = c(33, 33),
+  weighted_ili = c(0, imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 33])
+)
+
+onset_df <- data.frame(
+  season_week = c(18, 18),
+  weighted_ili = c(0, imaginary_ili_data$weighted_ili[imaginary_ili_data$season_week == 18])
+)
+
+p <- ggplot() +
+  geom_path(aes(x = season_week, y = weighted_ili),
+    data = current_ili_data) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "black", linetype = 2, data = imaginary_ili_data) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = peak_df) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = peak_df2) +
+  geom_path(aes(x = season_week, y = weighted_ili), colour = "orange", size = 2, linetype = 1, data = onset_df) +
+  geom_hline(yintercept = 2.1, colour = "red", linetype = 2) +
+  xlab("Week of Season") +
+  ylab("Weighted Percentage of Doctor Visits\nwith Influenza-Like Illness") +
+  coord_cartesian(xlim = c(1, 52), ylim = c(0, 6), expand = FALSE) +
+#  ggtitle("Flu Incidence So Far in the 2016/2017 Season") +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none")
+
+print(p)
+```
+
+
+## Relative Performance Varies
+
+```{r log_scores_and_weights_vs_analysis_time_setup, echo=FALSE, cache=TRUE}
+get_legend_grob <- function(x) {
+  data <- ggplot2:::ggplot_build(x)
+  
+  plot <- data$plot
+  panel <- data$panel
+  data <- data$data
+  theme <- ggplot2:::plot_theme(plot)
+  position <- theme$legend.position
+  if (length(position) == 2) {
+    position <- "manual"
+  }
+  
+  legend_box <- if (position != "none") {
+    ggplot2:::build_guides(plot$scales, plot$layers, plot$mapping, 
+      position, theme, plot$guides, plot$labels)
+  } else {
+    ggplot2:::zeroGrob()
+  }
+  if (ggplot2:::is.zero(legend_box)) {
+    position <- "none"
+  }
+  else {
+    legend_width <- gtable:::gtable_width(legend_box) + theme$legend.margin
+    legend_height <- gtable:::gtable_height(legend_box) + theme$legend.margin
+    just <- valid.just(theme$legend.justification)
+    xjust <- just[1]
+    yjust <- just[2]
+    if (position == "manual") {
+      xpos <- theme$legend.position[1]
+      ypos <- theme$legend.position[2]
+      legend_box <- editGrob(legend_box, vp = viewport(x = xpos, 
+        y = ypos, just = c(xjust, yjust), height = legend_height, 
+        width = legend_width))
+    }
+    else {
+      legend_box <- editGrob(legend_box, vp = viewport(x = xjust, 
+        y = yjust, just = c(xjust, yjust)))
+    }
+  }
+  return(legend_box)
+}
+
+
+awes_path <- find.package("awes")
+color_palette <- c("#E69F00", "#56B4E9", "#009E73")
+
+log_scores <- bind_rows(
+    assemble_predictions(
+      preds_path = file.path(awes_path, "estimation/loso-predictions"),
+      regions = c("National", paste0("Region", 1:10)),
+      models = c("kde", "kcde", "sarima"),
+      prediction_targets = c("onset", "peak_week", "peak_inc"),
+      prediction_types = c("log_score")
+    )
+  ) %>%
+  gather_("prediction_target", "log_score",
+    paste0(c("onset", "peak_week", "peak_inc"), "_log_score")) %>%
+  mutate(prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10))
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "onset" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+awes_path <- find.package("awes")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "onset") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_onset_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_onset_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 11) +
+  theme(
+    axis.title.y = element_blank(),
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_onset_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40 &
+        model_weights$ensemble_method == "FW-reg-w", ]) +
+#  facet_wrap( ~ quantity) +   
+  scale_linetype("Model") + 
+  scale_colour_manual("Model", values = color_palette) +
+  # scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  scale_size_manual("Ensemble\nModel", breaks = c("FW-reg-w"), values = c(1)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 11) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+
+component_legend <- get_legend_grob(p_onset_scores)
+p_onset_scores <- p_onset_scores +
+  theme(legend.position = "none")
+
+ensemble_legend <- get_legend_grob(
+  ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      size = ensemble_method
+    ),
+    data = model_weights) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  theme_bw(base_size = 11)
+)
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "peak_week" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "peak_week") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_peak_week_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_peak_week_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+#  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 11) +
+  theme(axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_peak_week_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 11) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+
+
+
+
+summarized_log_scores <- log_scores %>%
+  filter(analysis_time_season %in% paste0(1999:2015, "/", 2000:2016) &
+      prediction_target == "peak_inc" &
+      region == "National") %>%
+  group_by(model, analysis_time_season_week) %>%
+  summarize(
+    mean_log_score = mean(log_score),
+    min_log_score = min(log_score),
+    max_log_score = max(log_score)) %>%
+  mutate(Model = toupper(model),
+    quantity = "Component Model Log Scores")
+
+model_weights <- rbind.fill(
+  readRDS(file.path(awes_path, "estimation/em-stacking/fits/em_weights.rds")) %>%
+    filter(analysis_time_season_week == "all-combined" &
+      region == "National" &
+      prediction_target == "peak_inc") %>%
+    transmute(
+      KDE = kde,
+      KCDE = kcde,
+      SARIMA = sarima,
+      junk = TRUE
+    ) %>%
+    right_join(
+      data.frame(
+        junk = TRUE,
+        ensemble_method = "CW",
+        analysis_time_season_week = 10:40
+      ),
+      by = "junk"
+    ) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    select_(.dots =
+        c("ensemble_method", "analysis_time_season_week", "model", "weight")),
+  readRDS(
+    file = file.path(awes_path,
+      "estimation/xgb-stacking/fits/model_weights_National_peak_inc_analysis_time_season_week.rds")) %>%
+    select_(.dots = c("analysis_time_season_week", paste0(c("kde", "kcde", "sarima"), "_log_score_params_combined"))) %>%
+    `colnames<-`(c("analysis_time_season_week", "KDE", "KCDE", "SARIMA")) %>%
+    gather_("model", "weight", c("KDE", "KCDE", "SARIMA")) %>%
+    mutate(ensemble_method = "FW-reg-w")
+) %>%
+  mutate(quantity = "Component Model Weights")
+
+p_peak_inc_scores <- ggplot() +
+  geom_ribbon(
+    aes(x = analysis_time_season_week,
+      ymin = min_log_score,
+      ymax = max_log_score,
+      colour = Model,
+      fill = Model,
+      linetype = Model),
+    alpha = 0.2,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+  geom_line(
+    aes(x = analysis_time_season_week,
+      y = mean_log_score,
+      colour = Model,
+      linetype = Model),
+    size = 1.5,
+    data = summarized_log_scores[summarized_log_scores$analysis_time_season_week %in% 10:40, ]) +
+#  facet_wrap( ~ quantity) +
+  scale_fill_manual("Component\nModel", values = color_palette) +
+  scale_colour_manual("Component\nModel", values = color_palette) +
+  scale_linetype("Component\nModel") +
+  ylim(c(-10.2,0)) +
+#  xlab("Week of Season at Analysis Time") +
+#  ylab("Log Score") +
+#  ggtitle("A: Component Model Log Scores") +
+  theme_bw(base_size = 11) +
+  theme(axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(6, 6, 0, 0), "pt"))
+
+p_peak_inc_weights <- ggplot() +
+  geom_line(aes(x = analysis_time_season_week,
+      y = weight,
+      colour = model,
+      linetype = model,
+      size = ensemble_method
+    ),
+#    data = model_weights[model_weights$analysis_time_season_week %in% 10:40, ]) +
+    data = model_weights[model_weights$analysis_time_season_week %in% 10:40 &
+        model_weights$model == "Fw-reg-w", ]) +
+#  facet_wrap( ~ quantity) +
+  scale_linetype("Model") +
+  scale_colour_manual("Model", values = color_palette) +
+  # scale_size_manual("Ensemble\nModel", breaks = c("CW", "FW-reg-w"), values = c(0.5, 1.5)) +
+  scale_size_manual("Ensemble\nModel", breaks = c("FW-reg-w"), values = c(1)) +
+  ylim(c(0,1)) +
+  xlab("Week of Season at Analysis Time") +
+#  ylab("Model Weight") +
+#  ggtitle("B: Component Model Weights") +
+  theme_bw(base_size = 11) +
+  theme(axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.margin = unit(c(3, 6, 0, 5), "pt"))
+```
+
+```{r log_scores_and_weights_vs_analysis_time2, echo=FALSE, cache=TRUE, fig.height=4.5}
+grid.newpage()  
+blank_height <- 0
+rel_height_lower <- 1.35
+pushViewport(viewport(layout =
+    grid.layout(nrow = 3, ncol = 3,
+      heights = unit(
+        c(1, 1, rel_height_lower),
+        c("lines", "null", "null")),
+      widths = unit(c(1, 4, 1), c("lines", "null", "null")))))
+
+p_onset_scores <- p_onset_scores +
+  xlab("") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank())
+print(p_onset_scores, vp = viewport(layout.pos.row = 2, layout.pos.col = 2))
+print(p_onset_weights, vp = viewport(layout.pos.row = 3, layout.pos.col = 2))
+
+pushViewport(viewport(layout.pos.row = 2, layout.pos.col = 3))
+grid.draw(component_legend)
+upViewport()
+# pushViewport(viewport(layout.pos.row = 3, layout.pos.col = 3))
+# grid.draw(ensemble_legend)
+# upViewport()
+
+grid.text("Prediction Target: Onset Timing",
+  just = "center",
+  gp = gpar(fontsize = 16),
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
+
+ls_str <- "Log Score   "
+mw_str <- "       Model Weight"
+grid.text(ls_str,
+  rot = 90,
+  gp = gpar(fontsize = 10),
+  vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+grid.text(mw_str,
+  rot = 90,
+  gp = gpar(fontsize = 10),
+  vp = viewport(layout.pos.row = 3, layout.pos.col = 1))
+```
+
+
+## Evaluation/Results
+
+#### "Public health actions informed by forecasts that later prove to be inaccurate can have negative consequences, including the loss of credibility, wasted and misdirected resources, and, in the worst case, increases in morbidity or mortality."
+
+
+ -- Biggerstaff et al. BMC Infectious Diseases 2016; 16(1):357.
+
+We're looking for two things:
+
+1. Good overall performance
+2. Consistency
