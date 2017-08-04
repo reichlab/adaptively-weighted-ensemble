@@ -950,3 +950,326 @@ ggplot(summary_figure_df) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
+
+
+
+```{r test_phase_predictive_dists_national_onset2, echo=FALSE, cache=TRUE, fig.height=9, fig.cap="Predictive distributions for onset timing at the national level from just the FW-reg-w method, facetted by season."}
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA,
+    observed_peak_inc = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+  
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+  region_season_obs_quantities$observed_peak_inc[rs_row] <-
+    temp$observed_peak_inc
+}
+
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = gsub(" ", "", region),
+    analysis_time_season = season,
+    observed_onset_week = factor(observed_onset_week,
+      levels = c(as.character(10:42), "none")),
+    observed_peak_week = observed_peak_week,
+    observed_peak_inc = observed_peak_inc
+  )
+region_season_obs_quantities$region[region_season_obs_quantities$region == "X"] <- "National"
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_models <- "xgb_stacking_reg_w"
+all_targets <- c("onset", "peak_week", "peak_inc")
+all_targets <- "onset"
+preds <- assemble_predictions(
+    preds_path = file.path(awes_path, "evaluation/test-predictions"),
+    models = all_models,
+    prediction_targets = all_targets,
+    prediction_types = "bin_log_probs"
+  ) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("bin", "log_prob", paste0("onset_bin_", c(10:42, "none"), "_log_prob")) %>%
+  mutate(
+    bin = factor(substr(bin, 11, nchar(bin) - 9)),
+    model = factor(model, levels = all_models),
+    prob = exp(log_prob)
+  )
+
+
+p_onset <- ggplot(data = preds %>% filter(region == "National")) +
+  geom_line(aes(x = as.numeric(bin), y = prob, colour = analysis_time_season_week, group = analysis_time_season_week)) +
+  geom_vline(aes(xintercept = as.numeric(observed_onset_week)),
+    color = "red",
+    data = region_season_obs_quantities %>% filter(region == "National")) +
+  scale_color_continuous("Analysis Time\nSeason Week",
+    low = "#56B1F7", high = "#132B43") +
+  scale_x_continuous(breaks = c(seq(from = 1, to = 34, by = 2), 34),
+    labels = levels(preds$bin)[c(seq(from = 1, to = 34, by = 2), 34)],
+    expand = c(0, 0.5)) +
+  facet_wrap( ~ analysis_time_season, ncol = 1) +
+  ylab("Predictive Probability") +
+  xlab("Onset Week") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+print(p_onset)
+```
+
+
+
+
+```{r test_phase_predictive_dists_national_peak_timing, echo=FALSE, cache=TRUE, fig.height=9, fig.cap="Predictive distributions for peak timing at the national level from just the FW-reg-w method, facetted by season."}
+all_models <- "xgb_stacking_reg_w"
+all_targets <- c("onset", "peak_week", "peak_inc")
+all_targets <- "peak_week"
+preds <- assemble_predictions(
+    preds_path = file.path(awes_path, "evaluation/test-predictions"),
+    models = all_models,
+    prediction_targets = all_targets,
+    prediction_types = "bin_log_probs"
+  ) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("bin", "log_prob", paste0("peak_week_bin_", c(10:42), "_log_prob")) %>%
+  mutate(
+    bin = substr(bin, 15, nchar(bin) - 9),
+    model = factor(model, levels = all_models),
+    prob = exp(log_prob)
+  )
+
+
+p <- ggplot(data = preds %>% filter(region == "National")) +
+  geom_line(aes(x = as.numeric(bin), y = prob, colour = analysis_time_season_week, group = analysis_time_season_week)) +
+  geom_vline(aes(xintercept = as.numeric(observed_peak_week)),
+    color = "red",
+    data = region_season_obs_quantities %>% filter(region == "National")) +
+  scale_color_continuous("Analysis Time\nSeason Week",
+    low = "#56B1F7", high = "#132B43") +
+  scale_x_continuous(breaks = seq(from = 10, to = 42, by = 2),
+    labels = seq(from = 10, to = 42, by = 2),
+    expand = c(0, 0)) +
+  facet_wrap( ~ analysis_time_season, ncol = 1) +
+  ylab("Predictive Probability") +
+  xlab("Peak Week") +
+  theme_bw()
+
+print(p)
+```
+
+
+```{r test_phase_predictive_dists_national_peak_incidence, echo=FALSE, cache=TRUE, fig.height=9, fig.cap="Predictive distributions for peak incidence at the national level from just the FW-reg-w method, facetted by season."}
+all_models <- "xgb_stacking_reg_w"
+all_targets <- c("onset", "peak_week", "peak_inc")
+all_targets <- "peak_inc"
+preds <- assemble_predictions(
+    preds_path = file.path(awes_path, "evaluation/test-predictions"),
+    models = all_models,
+    prediction_targets = all_targets,
+    prediction_types = "bin_log_probs"
+  ) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("bin", "log_prob", paste0("peak_inc_bin_", seq(from = 0, to = 13, by = 0.1), "_log_prob")) %>%
+  mutate(
+    bin = as.numeric(substr(bin, 14, nchar(bin) - 9)),
+    model = factor(model, levels = all_models),
+    prob = exp(log_prob)
+  )
+
+
+p <- ggplot(data = preds %>% filter(region == "National")) +
+  geom_line(aes(x = bin, y = prob, colour = analysis_time_season_week, group = analysis_time_season_week)) +
+  geom_vline(aes(xintercept = as.numeric(observed_peak_inc)),
+    color = "red",
+    data = region_season_obs_quantities %>% filter(region == "National")) +
+  scale_color_continuous("Analysis Time\nSeason Week",
+    low = "#56B1F7", high = "#132B43") +
+  facet_wrap( ~ analysis_time_season, ncol = 1) +
+  ylab("Predictive Probability") +
+  xlab("Peak Incidence") +
+  theme_bw()
+
+print(p)
+```
+
+```{r test_phase_log_scores_by_region_season_difference_density, echo=FALSE, cache=TRUE, fig.height=7.5, fig.cap="Density plots representing the distribution of log score differences from predictions made by the FW-reg-w and SARIMA models for predictions of onset timing across all regions and test phase seasons.  The horizontal axis represents the difference in log scores achieved by the FW-reg-w and SARIMA models for predictions made in a particular week; positive values indicate that FW-reg-w outperformed SARIMA for that prediction.  The vertical line indicates the mean log score difference for all predictions made before the onset occurred in the given region and season."}
+awes_path <- find.package("awes")
+
+
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = ifelse(region == "X", "National", gsub(" ", "", region)),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+preds_wide <- preds %>%
+  dplyr::filter(before_target_date == "before\ntarget date") %>%
+  dplyr::select(-score) %>%
+  tidyr::spread(model, log_score)
+
+all_models <- unique(preds$model)
+for(model_val in all_models) {
+  preds_wide[[paste0("diff_xgb_stacking_reg_w_vs_", model_val)]] <-
+  preds_wide[["FW-reg-w"]] - preds_wide[[model_val]]
+#    preds_wide[["xgb_stacking_reg_w"]] - preds_wide[[model_val]]
+}
+
+#ggplot(data = preds_wide %>% filter(prediction_target == "onset")) +
+#  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_sarima)) +
+ggplot(data = preds_wide %>% filter(prediction_target == "Onset Timing")) +
+  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_SARIMA)) +
+  geom_vline(xintercept = 0) +
+  geom_vline(aes(xintercept = mean_log_score_diff),
+    color = "red",
+    linetype = 2,
+    data = preds_wide %>% filter(prediction_target == "Onset Timing") %>%
+#    data = preds_wide %>% filter(prediction_target == "onset") %>%
+      group_by_(.dots = c("analysis_time_season", "region")) %>%
+      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_SARIMA))) +
+#      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))) +
+#  facet_grid(region ~ analysis_time_season, scales = "free_y") +
+  facet_grid(region ~ analysis_time_season, scales = "fixed") +
+#  scale_y_sqrt() +
+  ylab("Density of Log Score Differences") +
+  xlab("Difference in Log Scores: FW-reg-w - SARIMA") +
+  theme_bw()
+```
+
+```{r test_phase_log_scores_by_target_difference_density, echo=FALSE, cache=TRUE, fig.height=7.5, fig.cap="Density plots representing the distribution of log score differences from predictions made by the FW-reg-w and SARIMA models for predictions of each prediction target, aggregated across all regions and test phase seasons.  The horizontal axis represents the difference in log scores achieved by the FW-reg-w and SARIMA models for predictions made in a particular week; positive values indicate that FW-reg-w outperformed SARIMA for that prediction.  The vertical line indicates the mean log score difference for all predictions made before the onset or season peak occurred."}
+#temp <- preds_wide %>%
+#  group_by(.dots = c("analysis_time_season", "region", "prediction_target")) %>%
+#  summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))
+#
+#ggplot(data = temp) +
+#  geom_density(aes(x = mean_log_score_diff)) +
+#  theme_bw()
+
+
+ggplot(data = preds_wide) +
+  geom_density(aes(x = diff_xgb_stacking_reg_w_vs_SARIMA)) +
+  geom_vline(xintercept = 0) +
+  geom_vline(aes(xintercept = mean_log_score_diff),
+    color = "red",
+    linetype = 2,
+    data = preds_wide %>%
+      group_by_(.dots = c("prediction_target")) %>%
+      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_SARIMA))) +
+#      summarize(mean_log_score_diff = mean(diff_xgb_stacking_reg_w_vs_sarima))) +
+#  facet_grid(region ~ analysis_time_season, scales = "free_y") +
+  facet_wrap( ~ prediction_target, scales = "fixed", ncol = 1) +
+#  scale_y_sqrt() +
+  ylab("Density of Log Score Differences") +
+  xlab("Difference in Log Scores: FW-reg-w - SARIMA") +
+  theme_bw()
+```
