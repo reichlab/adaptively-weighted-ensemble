@@ -61,10 +61,11 @@ library(tidyr)
 library(ggplot2)
 library(grid)
 library(awes)
-library(nlme)
 library(mosaic)
 library(gridExtra)
 library(cowplot)
+library(nlme)
+library(multcomp)
 ```
 
 \vspace*{0.2in}
@@ -127,7 +128,7 @@ With the revolution in science driven by the promise of "big" and real-time data
 Some of the largest public health agencies in the world, including the US Centers for Disease Control and Prevention (CDC) have openly endorsed using models to inform decision making, saying "with models, decision-makers can look to the future with confidence in their ability to respond to outbreaks and public health emergencies" \cite{cdc-decisions-2016}.
 
 Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year. 
-We observed in previous research that early in the U.S. influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model \cite{ReichLabGitHubDiseasePredWithKCDEPackage}. 
+We observed in previous research that early in the influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model \cite{ReichLabGitHubDiseasePredWithKCDEPackage}. 
 However, in the middle of the season, the time-series models showed improved accuracy. 
 We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
@@ -167,14 +168,15 @@ We then turn to the ensemble framework itself, describing the different ensemble
 
 ## Data and prediction targets
 
-We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the U.S. Centers for Disease Control and Prevention (CDC) (Fig \ref{fig:raw-data}).
+We obtained publicly available data on seasonal influenza activity in the United States between 1997 and 2016 from the US Centers for Disease Control and Prevention (CDC) (Fig \ref{fig:raw-data}).
 For each of the 10 Health and Human Services regions in the country in addition to the nation as a whole, the CDC calculates and publishes each week a measure called the weighted influenza-like illness (wILI) index.
 The wILI for a particular region is calculated as the average proportion of doctor visits with influenza-like illness for each state in the region, weighted by state population. 
 During the CDC-defined influenza season (between Morbidity and Mortality Weekly Report week 40 of one year and 20 of the next year), the CDC publishes updated influenza data on a weekly basis. 
 This includes "current" wILI data from two weeks prior to the reporting date, as well as updates to previously reported numbers as new data becomes available. 
 For this analysis, we use only the final reported wILI measures to train and predict from our models.
+In the early seasons, data were not recorded during the off-season.  Additionally, there were 52 observations in which the reported wILI was zero; these generally occurred near the off-season in early years, and occurred in weeks when only small numbers of health care providers submitted reports to the CDC.  We treated these reported zeros as missing data throughout the analysis.
 
-The CDC defines the influenza season onset as the first of three successive weeks of the season for which wILI is greater than or equal to a threshold that is specific to the region and season. 
+The CDC defines the influenza season onset as the first of three consecutive weeks of the season for which wILI is greater than or equal to a threshold that is specific to the region and season. 
 This threshold is the mean percent of patient visits where the patient had ILI during low incidence weeks for that region in the past three seasons, plus two standard deviations \cite{cdc2016}.
 The CDC provides historical threshold values for each region going back to the 2007/2008 season \cite{cdc2016-baselines}. 
 Additionally, we define two other metrics specific to a region-season.
@@ -184,8 +186,8 @@ The peak week is the week at which the maximum wILI for the season is observed.
 Each predictive distribution was represented by probabilities assigned to bins associated with different possible outcomes.
 For onset week, the bins are represented by integer values for each possible season week plus a bin for "no onset". 
 For peak week, the bins are represented by integer values for each possible season week.
-For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $13.05$. 
-Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 13.05), [13.05, $\infty$).
+For peak incidence, the bins capture incidence rounded to a single decimal place, with a single bin to capture all incidence over $12.95$. 
+Formally, the incidence bins are as follows: [0, 0.05), [0.05, 0.15), ..., [12.95, 12.95), [12.95, $\infty$).
 These bins were used in the 2016-2017 influenza prediction contest run by the CDC \cite{cdc2016-contest-guidelines}.
 
 We measure the accuracy of predictive distributions using the log score.
@@ -193,6 +195,9 @@ The log score is a proper scoring rule \cite{Gneiting2007}, calculated in our se
 Proper scoring rules are preferred for measuring the quality of predictive distributions because the expected score is optimized by the true probabilty distribution.
 We note that for peak week, in some region-seasons the same peak incidence was achieved in multiple weeks (after rounding to one decimal place).
 In those cases, we calculated the log score as the log of the sum of the probabilities assigned to those weeks; this is consistent with scoring procedures used in the 2016-2017 flu prediction contest run by the CDC \cite{cdc2016-contest-guidelines}.
+However, the log score is not directly comparable with the score used by the CDC in the prediction contest.
+The CDC calculates the score of a prediction as the log of the combined probability assigned to several bins surrounding the realized outcome; this has some benefits, but has the disadvantage that it is not a proper score.
+We have opted to use the log score in this work because it is a proper score.
 
 ## Component models
 We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence \cite{ReichLabGitHubDiseasePredWithKCDEPackage}.  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
@@ -273,7 +278,7 @@ We used four distinct methodologies to define weights to use for the stacking mo
 
 1. Equal Weights (\textbf{EW}): $\pi_m(\bx_t) = 1/M$. In this scenario, each model contributes the same weight for each target and for all values of $\bx_t$.
 
-2. Constant model weights via degenerate EM (\textbf{dEM}): $\pi_m(\bx_t) = c_m$, a constant where $\sum_{m=1}^M c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization (dEM) algorithm \cite{Lin2004}.  A separate set of weights is estimated for each region and prediction target.
+2. Constant model weights via degenerate EM (\textbf{CW}): $\pi_m(\bx_t) = c_m$, a constant where $\sum_{m=1}^M c_m = 1$ but the constants are not necessarily the same for each model. These weights are estimated using the degenerate estimation-maximization algorithm \cite{Lin2004}.  A separate set of weights is estimated for each region and prediction target.
 
 3. Feature-weighted (\textbf{FW}): $\pi_m(\bx_t)$ depends on features including week of the season and model uncertainty for the KCDE and SARIMA models.  A separate set of weighting functions is estimated for each region and prediction target.
 
@@ -282,7 +287,7 @@ We used four distinct methodologies to define weights to use for the stacking mo
     b. (\textbf{FW-reg-wu}) week of the season and model uncertainty for the KCDE and SARIMA models;
     c. (\textbf{FW-reg-wui}) week of the season, model uncertainty for the KCDE and SARIMA models, and incidence (wILI) in the most recent week.
 
-All in all, this leads to 6 ensemble models, summarized in Table \ref{tbl:EnsembleModelSummaryTable}.  The first three of these models (\textbf{EW}, \textbf{dEM}, and \textbf{FW}) can be viewed as variations on \textbf{FW-reg-wu} if we vary the amount and type of regularization imposed on the \textbf{FW-reg-wu} model.  Thus, comparisons among these four models will enable us to explore the benefits of allowing the model weights to depend on covariates while imposing an appropriate amount of rigidity on the model weight functions $\pi_m(\bx_t)$.  We will discuss the regularization strategies used in \textbf{FW-reg-wu} further in the next subsection.  Meanwhile, comparisons among the \textbf{FW-reg-w}, \textbf{FW-reg-wu}, and \textbf{FW-reg-wui} models will allow us to explore the relative contributions to predictive performance that can be achieved by allowing the model weights to depend on different features.
+All in all, this leads to 6 ensemble models, summarized in Table \ref{tbl:EnsembleModelSummaryTable}.  The first three of these models (\textbf{EW}, \textbf{CW}, and \textbf{FW}) can be viewed as variations on \textbf{FW-reg-wu} if we vary the amount and type of regularization imposed on the \textbf{FW-reg-wu} model.  Thus, comparisons among these four models will enable us to explore the benefits of allowing the model weights to depend on covariates while imposing an appropriate amount of rigidity on the model weight functions $\pi_m(\bx_t)$.  We will discuss the regularization strategies used in \textbf{FW-reg-wu} further in the next subsection.  Meanwhile, comparisons among the \textbf{FW-reg-w}, \textbf{FW-reg-wu}, and \textbf{FW-reg-wui} models will allow us to explore the relative contributions to predictive performance that can be achieved by allowing the model weights to depend on different features.
 
 \begin{table}[!ht]
 \centering
@@ -304,7 +309,9 @@ FW-reg-wui & X & X & X & X & X & X \\
 \end{tabular}
 \end{table}
 
-Each of the six ensemble models, along with the three component models, are used to generate predictions in every season-week of each of the five testing seasons, assuming perfect reporting. 
+As discussed above, leave-one-season-out prediction results from the three component models are inputs to the ensemble estimation routines.
+During ensemble estimation, we dropped any training set time points for which cross-validated predictions from all three component models were not available.
+After the training phase, each of the six ensemble models, along with the three component models, are used to generate predictions in every season-week of each of the five testing seasons, assuming perfect reporting. 
 These predictions are then used to evaluate the prospective predictive performance of each of the ensemble methods. 
 In total, we evaluate 9 models in 11 regions over 5 years and 3 targets of interest. 
 
@@ -329,15 +336,15 @@ where $f_m(y_t|\bx_t^{(m)})$ is the cross-validated predictive density from the 
 
 Specifically, we define a single tree as
 \begin{equation}
-T(\bx_t; \btheta) = \sum_{j=1}^J \gamma_j I_{R_j}(\bx_t),
+T(\bx_t; \btheta) = \sum_{j=1}^J \gamma_j I_{R_j(\bpsi)}(\bx_t),
 \end{equation}
-where the $R_j$ are a set of disjoint regions that comprise a partition of the space $\mathcal{X}$ of feature values $\bx_t$, and $I$ is the indicator function taking the value $1$ if $\bx_t \in R_j$ and $0$ otherwise. The parameters $\btheta = (\bpsi, \bgamma)$ for the tree are the split points $\bpsi$ partitioning $\mathcal{X}$ into the regions $R_j$ and the regression constants $\bgamma$ associated with each region.
+where the $R_j(\bpsi)$ are a set of disjoint regions that comprise a partition of the space $\mathcal{X}$ of feature values $\bx_t$, and $I$ is the indicator function taking the value $1$ if $\bx_t \in R_j(\bpsi)$ and $0$ otherwise. The parameters $\btheta = (\bpsi, \bgamma)$ for the tree are the split points $\bpsi$ partitioning $\mathcal{X}$ into the regions $R_j(\bpsi)$ and the regression constants $\bgamma$ associated with each region.
 The function $\rho_m(\bx_t)$ is obtained as the sum of $B$ trees:
 \begin{equation}
 \rho_m(\bx_t; \Theta_m) = \sum_{b=1}^B T(\bx_t; \btheta_{m, b}).
 \end{equation}
 
-In each iteration $b$ of the boosting process, we estimate $M$ new regression trees, one for each component model.  These trees are estimated so as to minimize a local approximation to the loss function around the weight functions that were obtained after the previous boosting iteration.  Our approach builds on the `xgb.train` function in the `xgboost` package for `R` to perform this estimation \cite{xgboost}.  The functionality in that package assumes that the loss function is convex, and optimizes a quadratic approximation to the loss in each boosting iteration.  The loss function in Equation \eqref{eqn:logloss} is not guaranteed to be convex, so a direct application of this optimization method fails in our setting.  We have modified the implementation in the `xgboost` package to use a gradient descent step in cases where the loss is locally concave.
+In each iteration $b$ of the boosting process, we estimate $M$ new regression trees, one for each component model.  These trees are estimated so as to minimize a local approximation to the loss function around the weight functions that were obtained after the previous boosting iteration.  Our approach builds on the `xgb.train` function in the `xgboost` package for `R` to perform this estimation \cite{xgboost}.  The functionality in that package assumes that the loss function is convex, and optimizes a quadratic approximation to the loss in each boosting iteration.  The loss function in Equation \eqref{eqn:logloss} is not guaranteed to be convex, so a direct application of this optimization method fails in our setting.  We have modified the implementation in the `xgboost` package to use a gradient descent step in cases where the loss is locally nonconvex (concave or indeterminate).
 
 Gradient tree boosting is appealing as a method for estimating the functions $\rho_m$ because it offers a great deal of flexibility in how the weights can vary as a function of the features $\bx_t$.  On the other hand, this flexibility can lead to overfitting the training data.  In order to limit the chances of overfitting, we have explored the use of three regularization parameters:
 
@@ -392,7 +399,7 @@ Aggregating across all combinations of region, season, and week of the season in
 
 ### Ensembles show stable performance across seasons for early-season predictions
 
-Although the aggregate performance of these models is quite similar, some differences between the methods begin to emerge when we examine performance in more detail.  Predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset timing) are the most relevant to decision makers using the predictions as inputs to set public policy.  Additionally, it is important that these predictions be of consistent quality in all seasons, whether the seasonal dynamics follow historic seasonal trends or diverge from those common patterns.  We evaluated the relative performance of predictions from each model that were generated before the onset or peak week in each test season (Fig \ref{fig:test_phase_log_scores_heatmap}).
+Although the aggregate performance of these models is quite similar, some differences between the methods begin to emerge when we examine performance in more detail.  Predictions made before the season peak (for predictions of peak incidence or peak timing) or before the season onset (for predictions of season onset timing) are the most relevant to decision makers using the predictions as inputs to set public policy.  It is important that these predictions be of consistent quality in all seasons, whether the seasonal dynamics follow historic seasonal trends or diverge from those common patterns.  We evaluated the relative performance of predictions from each model that were generated before the onset or peak week in each test season (Fig \ref{fig:test_phase_log_scores_heatmap}).
 
 In all test phase seasons and for all prediction targets, the worst performing model is always one of the three component models (\textbf{KDE}, \textbf{KCDE}, or \textbf{SARIMA}).  Furthermore, each of the component models outperforms the other two for at least one combination of season and prediction target.  Within each season, the component models are often among either the best-performing or the worst-performing models.  For example, the \textbf{SARIMA} model ranks first for predictions of peak timing in four out of five seasons and last in the fifth season, but ranks last for predictions of peak incidence in four out of five seasons and first in the remaining season.  Similar trends, though slightly less extreme, also hold for \textbf{KDE} and \textbf{KCDE}.
 
@@ -409,7 +416,7 @@ Specifically, a comparison of average log-scores for the \textbf{FW-wu} and \tex
 Only once out of 15 combinations of target and test-season (onset timing in the 2015/2016 season) did \textbf{FW-wu} outperform its regularized counterpart (Fig 5). 
 
 
-```{r raw_data_plot, echo=FALSE, fig.height=4, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical grey lines.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
+```{r raw_data_plot, echo=FALSE, fig.height=4, fig.cap="\\label{fig:raw-data}Plot of influenza data.  The full data include observations aggregated to the national level and for 10 smaller regions.  Here we plot only the data at the national level and in two of the smaller regions; data for the other regions are qualitatively similar.  Missing data are indicated with vertical blue bars.  The vertical red dashed lines indicate the cutoff time between the training and testing phases; 5 seasons of data were held out for testing."}
 flu_data$region[flu_data$region == "X"] <- "National"
 flu_data$region <- factor(flu_data$region,
   levels = c("National", paste0("Region ", 1:10)))
@@ -428,7 +435,7 @@ ggplot() +
   geom_line(aes(x = as.Date(time), y = weighted_ili),
     data = flu_data[flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
   geom_vline(aes(xintercept = as.numeric(as.Date(time))),
-    colour = "grey",
+    colour = "blue",
     data = flu_data[is.na(flu_data$weighted_ili) & flu_data$region %in% regions_to_plot & flu_data$season %in% paste0(1997:2015, "/", 1998:2016), ]) +
   geom_vline(aes(xintercept = train_cutoff_time),
     colour = "red",
@@ -1214,6 +1221,586 @@ grid.draw(plot_legend)
 upViewport()
 ```
 
+\begin{table}[!ht]
+\centering
+\caption{\label{tbl:ModelPerformanceSummaryTable}Summary of average log scores and variance of log scores across all spatial units and test phase seasons for each method.}
+\begin{tabular}{r c c m{0.05cm} c c m{0.05cm} c c}
+\toprule
+& \multicolumn{2}{c}{Onset Timing} & & \multicolumn{2}{c}{Peak Timing} & & \multicolumn{2}{c}{Peak Incidence} \\
+\cline{2-3} \cline{5-6} \cline{8-9}
+ Model & Mean & Variance & & Mean & Variance & & Mean & Variance \\ 
+\hline
+```{r summarized_results_table, echo = FALSE, results = "asis"}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = ifelse(region == "X", "National", gsub(" ", "", region)),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+preds_wide <- preds %>%
+  dplyr::filter(before_target_date == "before\ntarget date") %>%
+  dplyr::select(-score) %>%
+  tidyr::spread(model, log_score)
+
+
+summarized_res <-
+  preds_wide[, c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui", "prediction_target")] %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", `FW-wu`, `FW-reg-w`, `FW-reg-wu`, `FW-reg-wui`, "prediction_target")) %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui", "prediction_target")) %>%
+  group_by(prediction_target) %>%
+  summarize_each(funs(mean, var)) %>%
+  t() %>%
+  `colnames<-`(.[1, ])
+for(model_val in c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui")) {
+  cat(model_val)
+  for(target_val in colnames(summarized_res)) {
+    cat(" & ")
+    cat(format(round(as.numeric(summarized_res[paste0(model_val, "_mean"), target_val]), 2), nsmall = 2))
+    cat(" & ")
+    cat(format(round(as.numeric(summarized_res[paste0(model_val, "_var"), target_val]), 2), nsmall = 2))
+    if(target_val %in% colnames(summarized_res)[1:2]) {
+      cat(" & ")
+    }
+  }
+  cat(" \\\\\n")
+}
+```
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!ht]
+\centering
+\caption{\label{tbl:ModelPerformanceSummaryTableCombined}Summary of average log scores and variance of log scores across all spatial units, test phase seasons, and prediction targets for each method.}
+\begin{tabular}{r c c}
+\toprule
+ Model & Mean & Variance \\ 
+\hline
+```{r summarized_results_table_across_target, echo = FALSE, results = "asis"}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = ifelse(region == "X", "National", gsub(" ", "", region)),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+preds_wide <- preds %>%
+  dplyr::filter(before_target_date == "before\ntarget date") %>%
+  dplyr::select(-score) %>%
+  tidyr::spread(model, log_score)
+
+
+summarized_res <-
+  preds_wide[, c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui")] %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", `FW-wu`, `FW-reg-w`, `FW-reg-wu`, `FW-reg-wui`, "prediction_target")) %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui", "prediction_target")) %>%
+  summarize_each(funs(mean, var)) %>%
+  t()
+
+for(model_val in c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui")) {
+  cat(model_val)
+  cat(" & ")
+  cat(format(round(as.numeric(summarized_res[paste0(model_val, "_mean"), 1]), 2), nsmall = 2))
+  cat(" & ")
+  cat(format(round(as.numeric(summarized_res[paste0(model_val, "_var"), 1]), 2), nsmall = 2))
+  cat(" \\\\\n")
+}
+```
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+```{r test_phase_log_scores_summary_v1a, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_score_boxplot}Log scores across all regions, seasons, and season weeks represented in box plots.  Log scores of negative infinity are represented with a cross at -15."}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+  
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = gsub(" ", "", region),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+region_season_obs_quantities$region[region_season_obs_quantities$region == "X"] <- "National"
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    model = factor(model, levels = all_models),
+    score = exp(log_score)
+  )
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+unique_region_season_model_autocor <- preds %>%
+  filter(before_target_date == "before\ntarget date") %>%
+  select_("region", "analysis_time_season", "model", "prediction_target", "log_score") %>%
+  group_by_("region", "analysis_time_season", "model", "prediction_target") %>%
+  summarize(
+    log_score_autocor = acf(log_score, plot = FALSE)[["acf"]][2, 1, 1]
+  )
+## set to 1 for kde
+unique_region_season_model_autocor$log_score_autocor[
+  is.na(unique_region_season_model_autocor$log_score_autocor)] <- 1
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season),
+    model = factor(model),
+    prediction_target = factor(prediction_target),
+    unique_region_season_model_target = factor(
+      paste(region, analysis_time_season, model, prediction_target, sep = "_")
+    )
+  )
+results_fit_before_target <- lme(log_score ~ model * prediction_target,
+  random = ~ 1 | unique_region_season_model_target,
+  correlation = corAR1(
+    value = mean(unique_region_season_model_autocor$log_score_autocor),
+    form = ~ analysis_time_season_week | unique_region_season_model_target),
+  method = "REML",
+  data = preds[preds$before_target_date == "before\ntarget date", ])
+
+num_models <- length(all_models)
+num_targets <- length(all_targets)
+
+unique_model_descriptors <- paste0("model", all_models)
+unique_target_descriptors <- paste0("prediction_target", all_targets)
+
+lc_df <- expand.grid(
+  model = all_models,
+  target = all_targets,
+  stringsAsFactors = FALSE)
+
+lc_df$model_descriptor <- paste0("model", lc_df$model)
+lc_df$target_descriptor <- paste0("prediction_target", lc_df$target)
+lc_df$name <- apply(as.matrix(lc_df[, 1:2]), 1, paste, collapse = "-")
+
+num_leading_cols <- ncol(lc_df)
+coef_cols <- seq(
+  from = num_leading_cols + 1,
+  length = num_models * num_targets
+)
+
+# corresponding indicator vector for each coefficient
+coef_names <- names(fixef(results_fit_before_target))
+unique_coef_name_component_descriptors <- unique(unlist(strsplit(coef_names, ":")))
+intercept_model <- unique_model_descriptors[
+  !(unique_model_descriptors %in% unique_coef_name_component_descriptors)]
+intercept_target <- unique_target_descriptors[
+  !(unique_target_descriptors %in% unique_coef_name_component_descriptors)]
+for(coef_ind in seq(from = 1, to = length(coef_names))) {
+	split_name <- unlist(strsplit(coef_names[[coef_ind]], ":"))
+	if(!any(split_name %in% unique_model_descriptors[unique_model_descriptors != intercept_model])) {
+		split_name <- c(split_name, unique_model_descriptors)
+	}
+	if(!any(split_name %in% unique_target_descriptors[unique_target_descriptors != intercept_target])) {
+		split_name <- c(split_name, unique_target_descriptors)
+	}
+
+	lc_df[[paste0("coef", coef_ind)]] <- 0
+	lc_df[[paste0("coef", coef_ind)]][
+	  lc_df$model_descriptor %in% split_name &
+		lc_df$target_descriptor %in% split_name] <- 1
+}
+
+model_row_inds <- seq_len(nrow(lc_df))
+
+# ## contrasts of (mean performance model 1) - (mean performance model 2) for all model pairs
+rowind <- nrow(lc_df)
+for(prediction_target in all_targets) {
+  for(fit_method1_ind in seq_len(length(all_models) - 1)) {
+    for(fit_method2_ind in seq(from = fit_method1_ind + 1, to = length(all_models))) {
+      rowind <- rowind + 1
+   	  
+      m1_name <- all_models[fit_method1_ind]
+      m2_name <- all_models[fit_method2_ind]
+      
+      m1_rowind <- which(lc_df$name == paste(m1_name, prediction_target, sep = "-"))
+      m2_rowind <- which(lc_df$name == paste(m2_name, prediction_target, sep = "-"))
+      
+     	lc_df[rowind, ] <- rep(NA, ncol(lc_df))
+      lc_df$name[rowind] <- paste0(m1_name, "-", m2_name, "-", prediction_target)
+     	lc_df$target[rowind] <- prediction_target
+     	lc_df[rowind, coef_cols] <- lc_df[m1_rowind, coef_cols] - lc_df[m2_rowind, coef_cols]
+    }
+  }
+}
+
+contrast_row_inds <- seq(from = length(model_row_inds) + 1, to = nrow(lc_df))
+
+## average performance of each model across all three prediction targets
+for(fit_method_ind in seq_len(length(all_models))) {
+  rowind <- rowind + 1
+  
+  m_name <- all_models[fit_method_ind]
+
+  m_rowinds <- which(lc_df$model == m_name)
+
+ 	lc_df[rowind, ] <- rep(NA, ncol(lc_df))
+ 	lc_df$model[rowind] <- m_name
+  lc_df$name[rowind] <- paste0(m_name, "-grand_mean")
+ 	lc_df[rowind, coef_cols] <- apply(lc_df[m_rowinds, coef_cols], 2, mean)
+}
+
+#lc_df <- lc_df[c(1:9, 136:144), ]
+
+lc_df$name <- factor(lc_df$name, levels = unique(lc_df$name))
+
+K_mat <- as.matrix(lc_df[, coef_cols])
+
+# get point estimates
+lc_df$pt_est <- as.vector(K_mat %*% matrix(fixef(results_fit_before_target)))
+
+# get familywise CIs
+confint_rows <- seq_len(nrow(lc_df))
+lc_df$fam_CI_lb <- NA
+lc_df$fam_CI_ub <- NA
+fam_CI_obj <- glht(results_fit_before_target, linfct = K_mat[confint_rows, ])
+temp <- confint(fam_CI_obj)$confint
+lc_df$fam_CI_lb[confint_rows] <- temp[, 2]
+lc_df$fam_CI_ub[confint_rows] <- temp[, 3]
+
+# get individual CIs
+lc_df$ind_CI_lb <- NA
+lc_df$ind_CI_ub <- NA
+for(rowind in confint_rows) {
+	ind_CI_obj <- glht(results_fit_before_target, linfct = K_mat[rowind, , drop = FALSE])
+	temp <- confint(ind_CI_obj)$confint
+	lc_df$ind_CI_lb[rowind] <- temp[, 2]
+	lc_df$ind_CI_ub[rowind] <- temp[, 3]
+}
+
+
+summary_figure_df <-
+  lc_df[confint_rows, c("model", "target", "pt_est", "fam_CI_lb", "fam_CI_ub", "ind_CI_lb", "ind_CI_ub")]
+
+summary_figure_df$model[summary_figure_df$model == "kde"] <- "KDE"
+summary_figure_df$model[summary_figure_df$model == "kcde"] <- "KCDE"
+summary_figure_df$model[summary_figure_df$model == "sarima"] <- "SARIMA"
+summary_figure_df$model[summary_figure_df$model == "equal_weights"] <- "EW"
+summary_figure_df$model[summary_figure_df$model == "em_stacking"] <- "CW"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_unregularized"] <- "FW-wu"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+summary_figure_df$model[summary_figure_df$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+summary_figure_df$model <- factor(summary_figure_df$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+summary_figure_df$target[summary_figure_df$target == "onset"] <- "Onset Timing"
+summary_figure_df$target[summary_figure_df$target == "peak_inc"] <- "Peak Incidence"
+summary_figure_df$target[summary_figure_df$target == "peak_week"] <- "Peak Timing"
+summary_figure_df$target <- factor(summary_figure_df$target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+summary_figure_df$prediction_target <- summary_figure_df$target
+
+
+awes_path <- find.package("awes")
+
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui"),
+  prediction_targets = c("onset", "peak_week", "peak_inc"),
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10)
+  )
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+p <- ggplot() +
+  geom_boxplot(aes(x = model, y = log_score),
+    color = "#CCCCCC",
+    data = preds) +
+  geom_point(aes(x = model, y = log_score),
+#    colour = "red",
+    colour = "#CCCCCC",
+    shape = "+",
+    size = 5,
+    position = position_jitter(width = 1, height = 0),
+    data = preds %>%
+      filter(is.infinite(log_score)) %>%
+      mutate(log_score = -15)) +
+  geom_point(aes(x = model, y = pt_est),
+    data = summary_figure_df[model_row_inds, ]) +
+  geom_errorbar(aes(x = model, ymin = fam_CI_lb, ymax = fam_CI_ub),
+    data = summary_figure_df[model_row_inds, ],
+    width = 0.7) +
+#  geom_errorbar(aes(x = model, ymin = ind_CI_lb, ymax = ind_CI_ub),
+#    data = summary_figure_df[model_row_inds, ],
+#    width = 0.2) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  xlab("Model") +
+  ylab("Log Score") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+suppressWarnings(print(p))
+```
+
 
 ```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_score_boxplot}Log scores across all regions, seasons, and season weeks represented in box plots.  Log scores of negative infinity are represented with a cross at -15."}
 awes_path <- find.package("awes")
@@ -1512,7 +2099,7 @@ Continued investigation, application, and innovation is necessary to strengthen 
 
 This work was supported by Award Number R35GM119582 from the National Institute Of General Medical Sciences and Defense Advanced Projects Research Agency Young Faculty Award Number Dl6AP00144. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institute Of General Medical Sciences, the National Institutes of Health, or the Defense Advanced Projects Research Agency.  The funders had no role in study design, data collection and analysis, decision to publish, or preparation of the manuscript.
 
-```{r test-phase-plot-summary, eval=FALSE}
+```{r test-phase-plot-summary, eval=FALSE, echo = FALSE}
 ## plots created for MIDAS meeting evaluation
 target_to_plot <- "Peak Incidence"
 preds_to_plot <- filter(preds, 
