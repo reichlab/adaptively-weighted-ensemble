@@ -1,7 +1,7 @@
 ---
 title: "Supplement to Prediction of Infectious Disease Epidemics via Feature-Weighted Density Ensembles"
 author: "Evan L Ray, Nicholas G Reich"
-output: 
+output:
     pdf_document:
         keep_tex: false
         citation_package: natbib
@@ -11,6 +11,8 @@ header-includes:
    - \input{GrandMacros.tex}
    - \usepackage{setspace}\onehalfspacing
    - \usepackage{lineno}\linenumbers
+   - \usepackage{booktabs}
+   - \usepackage{array}
    - \renewcommand{\familydefault}{cmss}
    - \renewcommand{\figurename}{Supplemental Figure}
 ---
@@ -34,6 +36,8 @@ library(grid)
 library(awes)
 library(nlme)
 library(multcomp)
+library(doMC)
+library(mosaic)
 
 awes_path <- find.package("awes")
 ```
@@ -178,15 +182,15 @@ StatChull <- ggproto("StatChull", Stat,
   compute_group = function(data, scales) {
     data[chull(data$x, data$y), , drop = FALSE]
   },
-  
+
   required_aes = c("x", "y")
 )
 
 stat_chull <- function(mapping = NULL, data = NULL, geom = "polygon",
-                       position = "identity", na.rm = FALSE, show.legend = NA, 
+                       position = "identity", na.rm = FALSE, show.legend = NA,
                        inherit.aes = TRUE, ...) {
   ggplot2::layer(
-    stat = StatChull, data = data, mapping = mapping, geom = geom, 
+    stat = StatChull, data = data, mapping = mapping, geom = geom,
     position = position, show.legend = show.legend, inherit.aes = inherit.aes,
     params = list(na.rm = na.rm, ...)
   )
@@ -542,7 +546,176 @@ ggplot() +
   theme_bw()
 ```
 
-```{r test_phase_log_scores_summary_v2, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:performance-model-means}Point estimates and confidence intervals for mean log score for each model in weeks before the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+```{r fw_reg_wu_model_weights, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:FWregwuModelWeights}Weights assigned to each component model by the FW-reg-wu model for the prediction of season peak incidence at the national level. There are three weighting functions (one for each component model) represented in each row of the figure. The value of the weight is depicted by the color. Each function depends on three features: the week of the season at the time when the predictions are made, KCDE model uncertainty, and SARIMA model uncertainty. Model uncertainty represents the minimum number of predictive distribution bins required to cover 90% probability of the predictive distribution, so the higher this number is the more uncertain the model is."}
+get_legend_grob <- function(x) {
+  data <- ggplot2:::ggplot_build(x)
+
+  plot <- data$plot
+  panel <- data$panel
+  data <- data$data
+  theme <- ggplot2:::plot_theme(plot)
+  position <- theme$legend.position
+  if (length(position) == 2) {
+    position <- "manual"
+  }
+
+  legend_box <- if (position != "none") {
+    ggplot2:::build_guides(plot$scales, plot$layers, plot$mapping,
+      position, theme, plot$guides, plot$labels)
+  } else {
+    ggplot2:::zeroGrob()
+  }
+  if (ggplot2:::is.zero(legend_box)) {
+    position <- "none"
+  }
+  else {
+    legend_width <- gtable:::gtable_width(legend_box) + theme$legend.margin
+    legend_height <- gtable:::gtable_height(legend_box) + theme$legend.margin
+    just <- valid.just(theme$legend.justification)
+    xjust <- just[1]
+    yjust <- just[2]
+    if (position == "manual") {
+      xpos <- theme$legend.position[1]
+      ypos <- theme$legend.position[2]
+      legend_box <- editGrob(legend_box, vp = viewport(x = xpos,
+        y = ypos, just = c(xjust, yjust), height = legend_height,
+        width = legend_width))
+    }
+    else {
+      legend_box <- editGrob(legend_box, vp = viewport(x = xjust,
+        y = yjust, just = c(xjust, yjust)))
+    }
+  }
+  return(legend_box)
+}
+
+awes_path <- find.package("awes")
+loso_preds_path <- file.path(awes_path, "estimation/loso-predictions")
+stacking_model_fits_path <- file.path(awes_path, "estimation/xgb-stacking/fits")
+
+component_model_names <- c("kde", "kcde", "sarima")
+region <- "National"
+prediction_target <- "peak_inc"
+explanatory_variables <- "analysis_time_season_week-kcde_model_confidence-sarima_model_confidence"
+explanatory_variables_split <- strsplit(explanatory_variables, "-")[[1]]
+ensemble_model_name <- "xgb_stacking_reg_wu"
+
+weights <- readRDS(
+  file = file.path(stacking_model_fits_path,
+    paste0("model_weights_", region, "_", prediction_target, "_", explanatory_variables, ".rds"))) %>%
+  select_(.dots = c(explanatory_variables_split, paste0(component_model_names, "_log_score_params_combined"))) %>%
+  `colnames<-`(c(explanatory_variables_split, component_model_names)) %>%
+  mutate(region = region,
+    prediction_target = prediction_target)
+
+weights <- weights %>%
+  gather_("model", "weight", c("kde", "kcde", "sarima"))
+
+typical_season_week <- 17L
+if(prediction_target %in% c("onset", "peak_week")) {
+  typical_confidence <- 5L
+} else {
+  typical_confidence <- 20L
+}
+
+p1 <- ggplot(
+  weights %>%
+    filter(sarima_model_confidence == typical_confidence &
+        kcde_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = analysis_time_season_week, y = kcde_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("Season Week at Analysis Time") +
+  ylab("KCDE Model Uncertainty") +
+  theme_bw()
+
+plot_legend <- get_legend_grob(p1)
+
+p1 <- p1 + theme(legend.position = "none")
+
+p2 <- ggplot(
+  weights %>%
+    filter(kcde_model_confidence == typical_confidence &
+        sarima_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = analysis_time_season_week, y = sarima_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("Season Week at Analysis Time") +
+  ylab("SARIMA Model Uncertainty") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+p3 <- ggplot(
+  weights %>%
+    filter(
+      analysis_time_season_week == typical_season_week &
+      kcde_model_confidence %%2 == 1 &
+      sarima_model_confidence %% 2 == 1) %>%
+    mutate(model = toupper(model))) +
+  geom_raster(aes(x = kcde_model_confidence, y = sarima_model_confidence, fill = weight)) +
+  scale_fill_gradient2("Model\nWeight",
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = as.character(c(0, 0.25, 0.5, 0.75, 1)),
+    low = "#b2182b",
+    mid = "#f7f7f7",
+    high = "#2166ac",
+    midpoint = 0.5) +
+  facet_wrap(~ model, nrow = 1L) +
+  xlab("KCDE Model Uncertainty") +
+  ylab("SARIMA Model Uncertainty") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
+grid.newpage()
+num_lines_text <- 1
+pushViewport(viewport(layout =
+    grid.layout(nrow = 6, ncol = 2,
+      heights = unit(
+        c(num_lines_text, 1, num_lines_text, 1, num_lines_text, 1),
+        rep(c("lines", "null"), 3)),
+      widths = unit(c(4, 1), c("null", "null")))))
+grid.text("A: SARIMA Model Uncertainty Fixed at 20",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 12),
+  vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
+grid.text("B: KCDE Model Uncertainty Fixed at 20",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 12),
+  vp = viewport(layout.pos.row = 3, layout.pos.col = 1:2))
+grid.text("C: Season Week Fixed at 17",
+  x = unit(0, "npc"),
+  just = "left",
+  gp = gpar(fontsize = 12),
+  vp = viewport(layout.pos.row = 5, layout.pos.col = 1:2))
+
+print(p1, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+print(p2, vp = viewport(layout.pos.row = 4, layout.pos.col = 1))
+print(p3, vp = viewport(layout.pos.row = 6, layout.pos.col = 1))
+
+pushViewport(viewport(layout.pos.row = 3:4, layout.pos.col = 2))
+grid.draw(plot_legend)
+upViewport()
+```
+
+
+```{r test_phase_log_scores_summary_v2, echo=FALSE, eval=FALSE, fig.height=8, fig.cap="\\label{fig:performance-model-means}Point estimates and confidence intervals for mean log score for each model in weeks before the target (onset or peak) occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all intervals.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
 awes_path <- find.package("awes")
 
 region_season_obs_quantities <- flu_data %>%
@@ -569,7 +742,7 @@ for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
       upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
     incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
   )
-  
+
   region_season_obs_quantities$observed_onset_week[rs_row] <-
     temp$observed_onset_week
   region_season_obs_quantities$observed_peak_week[rs_row] <-
@@ -695,13 +868,13 @@ for(prediction_target in all_targets) {
   for(fit_method1_ind in seq_len(length(all_models) - 1)) {
     for(fit_method2_ind in seq(from = fit_method1_ind + 1, to = length(all_models))) {
       rowind <- rowind + 1
-   	  
+
       m1_name <- all_models[fit_method1_ind]
       m2_name <- all_models[fit_method2_ind]
-      
+
       m1_rowind <- which(lc_df$name == paste(m1_name, prediction_target, sep = "-"))
       m2_rowind <- which(lc_df$name == paste(m2_name, prediction_target, sep = "-"))
-      
+
      	lc_df[rowind, ] <- rep(NA, ncol(lc_df))
       lc_df$name[rowind] <- paste0(m1_name, "-", m2_name, "-", prediction_target)
      	lc_df$target[rowind] <- prediction_target
@@ -774,7 +947,7 @@ ggplot(summary_figure_df[model_row_inds, ]) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-```{r test_phase_log_scores_contrasts_onset, echo=FALSE, cache=TRUE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-onset-timing}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of season onset timing made before the season onset occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+```{r test_phase_log_scores_contrasts_onset, echo=FALSE, eval=FALSE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-onset-timing}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of season onset timing made before the season onset occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
 prediction_target <- "onset"
 
 model_names_map <- c(
@@ -833,7 +1006,7 @@ ggplot(summary_figure_df) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-```{r test_phase_log_scores_contrasts_peak_timing, echo=FALSE, cache=TRUE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-peak-timing}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of peak timing made before the season onset occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+```{r test_phase_log_scores_contrasts_peak_timing, echo=FALSE, eval=FALSE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-peak-timing}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of peak timing made before the season onset occurred.  Estimates are obtained from a mixed effects model with a separate fixed effect mean for the interaction of model and prediction target; random effects for each combination of region, season, model, and prediction target; and lag 1 autocorrelation nested within each combination of region, season, model, and prediction target.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
 prediction_target <- "peak_week"
 
 model_names_map <- c(
@@ -892,7 +1065,7 @@ ggplot(summary_figure_df) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-```{r test_phase_log_scores_contrasts_peak_inc, echo=FALSE, cache=TRUE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-peak-inc}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of peak incidence made before the season peak occurred.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
+```{r test_phase_log_scores_contrasts_peak_inc, echo=FALSE, eval = FALSE, fig.height=4, fig.cap="\\label{fig:performance-contrasts-peak-inc}Point estimates and confidence intervals for the difference in mean log score between the best model and each other model for predictions of peak incidence made before the season peak occurred.  The wider confidence interval bounds are simultaneous confidence intervals with an approximate familywise 95% coverage rate for all individual model means and all pairwise model contrasts for all prediction targets.  The inner confidence intervals are calculated separately, with approximate coverage rates of 95%.  Log scores of -Infinity were truncated at -10 before fitting this model."}
 prediction_target <- "peak_inc"
 
 model_names_map <- c(
@@ -979,7 +1152,7 @@ for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
       upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
     incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
   )
-  
+
   region_season_obs_quantities$observed_onset_week[rs_row] <-
     temp$observed_onset_week
   region_season_obs_quantities$observed_peak_week[rs_row] <-
@@ -1308,10 +1481,10 @@ m_combos$m2 <- all_models[m_combos$m2_ind]
 
 get_one_perm <- function(preds_wide_perm, all_models, group_by_vars = NULL) {
   model_cols <- which(colnames(preds_wide_perm) %in% all_models)
-  
+
   model_scores <- preds_wide_perm[, model_cols]
   model_cols <- seq_along(model_cols)
-  
+
   if(is.null(group_by_vars)) {
     for(i in seq_len(nrow(preds_wide_perm))) {
       model_scores[i, model_cols] <- base::sample(model_scores[i, model_cols])
@@ -1334,22 +1507,48 @@ get_one_perm <- function(preds_wide_perm, all_models, group_by_vars = NULL) {
       model_scores[preds_inds, model_cols] <- model_scores[preds_inds, base::sample(model_cols)]
     }
   }
-  
+
   return(model_scores)
 }
 
-perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
+#perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
+#  set.seed(13704) # from random.org
+#  seed_vals <- runif(nrow(m_combos), 1, 10^5)
+#  set.seed(seed_vals[i])
+#
+#  model_pair <- m_combos[i, c("m1", "m2")]
+#
+#  perm_model_scores <-
+#    lapply(
+#      1:2000,
+##      1:100,
+#      function(i) {
+#        get_one_perm(
+#          preds_wide_perm = preds_wide %>% filter(before_target_date == "before\ntarget date"),
+#          all_models = model_pair,
+#          group_by_vars = c("region", "analysis_time_season", "prediction_target"))
+#      }
+#    )
+#
+#  return(list(m1 = model_pair[1],
+#    m2 = model_pair[2],
+#    perm_model_scores = perm_model_scores))
+#}
+
+
+#perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
 #perms_list <- foreach(i = seq_len(3)) %dopar% {
-  set.seed(13704) # from random.org
+perm_test_res <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
+  set.seed(60929) # from random.org
   seed_vals <- runif(nrow(m_combos), 1, 10^5)
   set.seed(seed_vals[i])
-  
+
   model_pair <- m_combos[i, c("m1", "m2")]
 
   perm_model_scores <-
     lapply(
-      1:5000,
-#      1:100,
+      1:10000,
+#      1:101,
       function(i) {
         get_one_perm(
           preds_wide_perm = preds_wide %>% filter(before_target_date == "before\ntarget date"),
@@ -1358,29 +1557,39 @@ perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
       }
     )
 
-  return(list(m1 = model_pair[1],
+  return(data.frame(m1 = model_pair[1],
     m2 = model_pair[2],
-    perm_model_scores = perm_model_scores))
+    pval_diff = sapply(
+      perm_model_scores,
+      function(ms) {
+        mean_ms <- apply(ms, 2, mean)
+        abs(mean_ms[2] - mean_ms[1]) >=
+          abs(realized_means$mean_val[realized_means$model == unlist(model_pair[2])] -
+            realized_means$mean_val[realized_means$model == unlist(model_pair[1])])
+      }) %>%
+      mean()
+    ))
+#    perm_model_scores = perm_model_scores))
 }
 ```
 
-```{r perm_test_means_plot, echo=FALSE}
-perm_test_res <- lapply(perms_list,
-  function(comp) {
-    data.frame(
-      m1 = unlist(comp$m1),
-      m2 = unlist(comp$m2),
-      pval_diff = sapply(
-        comp$perm_model_scores,
-        function(ms) {
-          mean_ms <- apply(ms, 2, mean)
-          abs(mean_ms[2] - mean_ms[1]) >=
-            abs(realized_means$mean_val[realized_means$model == unlist(comp$m2)] -
-              realized_means$mean_val[realized_means$model == unlist(comp$m1)])
-        }) %>%
-        mean()
-    )
-  })
+```{r perm_test_means_plot, echo=FALSE, eval = FALSE}
+#perm_test_res <- lapply(perms_list,
+#  function(comp) {
+#    data.frame(
+#      m1 = unlist(comp$m1),
+#      m2 = unlist(comp$m2),
+#      pval_diff = sapply(
+#        comp$perm_model_scores,
+#        function(ms) {
+#          mean_ms <- apply(ms, 2, mean)
+#          abs(mean_ms[2] - mean_ms[1]) >=
+#            abs(realized_means$mean_val[realized_means$model == unlist(comp$m2)] -
+#              realized_means$mean_val[realized_means$model == unlist(comp$m1)])
+#        }) %>%
+#        mean()
+#    )
+#  })
 
 ptr_as_df <- rbind.fill(perm_test_res)
 ptr_as_df2 <- ptr_as_df
@@ -1396,7 +1605,7 @@ ptr_as_df_c <- rbind(ptr_as_df, ptr_as_df2) %>%
   dplyr::mutate(mean_m2 = mean_val) %>%
   dplyr::select(-mean_val) %>%
   dplyr::mutate(diff_means = mean_m2 - mean_m1)
-  
+
 ggplot(data = ptr_as_df_c) +
   geom_tile(aes(x = m1, y = m2, fill = diff_means)) +
   geom_text(aes(x = m1, y = m2, label=paste0(
@@ -1436,18 +1645,19 @@ m_combos <- expand.grid(
 m_combos$m1 <- all_models[m_combos$m1_ind]
 m_combos$m2 <- all_models[m_combos$m2_ind]
 
-perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
+#perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
 #perms_list <- foreach(i = seq_len(3)) %dopar% {
+perm_test_res <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
   set.seed(60929) # from random.org
   seed_vals <- runif(nrow(m_combos), 1, 10^5)
   set.seed(seed_vals[i])
-  
+
   model_pair <- m_combos[i, c("m1", "m2")]
 
   perm_model_scores <-
     lapply(
-      1:5000,
-#      1:100,
+      1:10000,
+#      1:101,
       function(i) {
         get_one_perm(
           preds_wide_perm = preds_wide %>% filter(before_target_date == "before\ntarget date"),
@@ -1456,30 +1666,40 @@ perms_list <- foreach(i = seq_len(nrow(m_combos))) %dopar% {
       }
     )
 
-  return(list(m1 = model_pair[1],
+  return(data.frame(m1 = model_pair[1],
     m2 = model_pair[2],
-    perm_model_scores = perm_model_scores))
+    pval_diff = sapply(
+      perm_model_scores,
+      function(ms) {
+        mean_ms <- apply(ms, 2, mean)
+        abs(mean_ms[2] - mean_ms[1]) >=
+          abs(realized_means$mean_val[realized_means$model == unlist(model_pair[2])] -
+            realized_means$mean_val[realized_means$model == unlist(model_pair[1])])
+      }) %>%
+      mean()
+    ))
+#    perm_model_scores = perm_model_scores))
 }
+
+#perm_test_res <- lapply(perms_list,
+#  function(comp) {
+#    data.frame(
+#      m1 = unlist(comp$m1),
+#      m2 = unlist(comp$m2),
+#      pval_diff = sapply(
+#        comp$perm_model_scores,
+#        function(ms) {
+#          mean_ms <- apply(ms, 2, mean)
+#          abs(mean_ms[2] - mean_ms[1]) >=
+#            abs(realized_means$mean_val[realized_means$model == unlist(comp$m2)] -
+#              realized_means$mean_val[realized_means$model == unlist(comp$m1)])
+#        }) %>%
+#        mean()
+#    )
+#  })
 ```
 
-```{r mad_perm_test_plot, echo = FALSE}
-perm_test_res <- lapply(perms_list,
-  function(comp) {
-    data.frame(
-      m1 = unlist(comp$m1),
-      m2 = unlist(comp$m2),
-      pval_diff = sapply(
-        comp$perm_model_scores,
-        function(ms) {
-          mean_ms <- apply(ms, 2, mean)
-          abs(mean_ms[2] - mean_ms[1]) >=
-            abs(realized_means$mean_val[realized_means$model == unlist(comp$m2)] -
-              realized_means$mean_val[realized_means$model == unlist(comp$m1)])
-        }) %>%
-        mean()
-    )
-  })
-
+```{r mad_perm_test_plot, echo = FALSE, eval = FALSE}
 ptr_as_df <- rbind.fill(perm_test_res)
 ptr_as_df2 <- ptr_as_df
 ptr_as_df2$m1 <- ptr_as_df$m2
@@ -1494,7 +1714,7 @@ ptr_as_df_c <- rbind(ptr_as_df, ptr_as_df2) %>%
   dplyr::mutate(mean_m2 = mean_val) %>%
   dplyr::select(-mean_val) %>%
   dplyr::mutate(diff_means = mean_m2 - mean_m1)
-  
+
 ggplot(data = ptr_as_df_c) +
   geom_tile(aes(x = m1, y = m2, fill = diff_means)) +
   geom_text(aes(x = m1, y = m2, label=paste0(
@@ -1513,4 +1733,390 @@ ggplot(data = ptr_as_df_c) +
     high = "#b2182b",
     midpoint = 0) +
   theme_bw()
+```
+
+\begin{table}[!ht]
+\centering
+\caption{\label{tbl:ModelPerformanceSummaryTable}Summary of average log scores and variance of log scores across all spatial units and test phase seasons for each method.}
+\begin{tabular}{r c c m{0.05cm} c c m{0.05cm} c c}
+\toprule
+& \multicolumn{2}{c}{Onset Timing} & & \multicolumn{2}{c}{Peak Timing} & & \multicolumn{2}{c}{Peak Incidence} \\
+\cline{2-3} \cline{5-6} \cline{8-9}
+ Model & Mean & Variance & & Mean & Variance & & Mean & Variance \\
+\hline
+```{r summarized_results_table, echo = FALSE, results = "asis"}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = ifelse(region == "X", "National", gsub(" ", "", region)),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+preds_wide <- preds %>%
+  dplyr::filter(before_target_date == "before\ntarget date") %>%
+  dplyr::select(-score) %>%
+  tidyr::spread(model, log_score)
+
+
+summarized_res <-
+  preds_wide[, c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui", "prediction_target")] %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", `FW-wu`, `FW-reg-w`, `FW-reg-wu`, `FW-reg-wui`, "prediction_target")) %>%
+#  select_(.dots = c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui", "prediction_target")) %>%
+  group_by(prediction_target) %>%
+  summarize_all(funs(mean, var)) %>%
+  t() %>%
+  `colnames<-`(.[1, ])
+for(model_val in c("KDE", "KCDE", "SARIMA", "EW", "CW", "FW-wu", "FW-reg-w", "FW-reg-wu", "FW-reg-wui")) {
+  cat(model_val)
+  for(target_val in colnames(summarized_res)) {
+    cat(" & ")
+    cat(format(round(as.numeric(summarized_res[paste0(model_val, "_mean"), target_val]), 2), nsmall = 2))
+    cat(" & ")
+    cat(format(round(as.numeric(summarized_res[paste0(model_val, "_var"), target_val]), 2), nsmall = 2))
+    if(target_val %in% colnames(summarized_res)[1:2]) {
+      cat(" & ")
+    }
+  }
+  cat(" \\\\\n")
+}
+```
+\bottomrule
+\end{tabular}
+\end{table}
+
+```{r test_phase_log_scores_summary_v1, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_score_boxplot}Log scores across all regions, seasons, and season weeks represented in box plots.  Log scores of negative infinity are represented with a cross at -15."}
+awes_path <- find.package("awes")
+
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui"),
+  prediction_targets = c("onset", "peak_week", "peak_inc"),
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10)
+  )
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+p <- ggplot() +
+  geom_boxplot(aes(x = model, y = log_score),
+    data = preds) +
+  geom_point(aes(x = model, y = log_score),
+    colour = "red",
+    shape = "+",
+    size = 5,
+    position = position_jitter(width = 1, height = 0),
+    data = preds %>%
+      filter(is.infinite(log_score)) %>%
+      mutate(log_score = -15)) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  xlab("Model") +
+  ylab("Log Score") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+suppressWarnings(print(p))
+```
+
+
+
+```{r test_phase_log_scores_by_season_heatmap_rank_rounded, echo=FALSE, cache=TRUE, fig.height=8, fig.cap="\\label{fig:test_phase_log_scores_heatmap}Model performance ranked by mean log score within each of the five test seasons for predictions made before the target (season onset or peak) occurred.  Averages are taken across all regions."}
+awes_path <- find.package("awes")
+
+region_season_obs_quantities <- flu_data %>%
+  select_(.dots = c("region", "season")) %>%
+  distinct() %>%
+  filter(season %in% paste0(2011:2015, "/", 2012:2016)) %>%
+  mutate(
+    observed_onset_week = NA,
+    observed_peak_week = NA
+  )
+
+for(rs_row in seq_len(nrow(region_season_obs_quantities))) {
+  temp <- get_observed_seasonal_quantities(
+    data = flu_data[flu_data$region == region_season_obs_quantities$region[rs_row], , drop = FALSE],
+    season = region_season_obs_quantities$season[rs_row],
+    first_CDC_season_week = 10,
+    last_CDC_season_week = 42,
+    onset_baseline =
+      get_onset_baseline(region = region_season_obs_quantities$region[rs_row],
+        season = region_season_obs_quantities$season[rs_row]),
+    incidence_var = "weighted_ili",
+    incidence_bins = data.frame(
+      lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
+      upper = c(seq(from = 0.05, to = 12.95, by = 0.1), Inf)),
+    incidence_bin_names = as.character(seq(from = 0, to = 13, by = 0.1))
+  )
+
+  region_season_obs_quantities$observed_onset_week[rs_row] <-
+    temp$observed_onset_week
+  region_season_obs_quantities$observed_peak_week[rs_row] <-
+    temp$observed_peak_week[1]
+}
+
+region_season_obs_quantities$observed_onset_week[
+  region_season_obs_quantities$observed_onset_week == "none"] <- 42
+region_season_obs_quantities <- region_season_obs_quantities %>%
+  transmute(
+    region = gsub(" ", "", region),
+    analysis_time_season = season,
+    observed_onset_week = as.numeric(observed_onset_week),
+    observed_peak_week = observed_peak_week
+  )
+
+all_models <- c("kde", "kcde", "sarima", "equal_weights", "em_stacking", "xgb_stacking_unregularized", "xgb_stacking_reg_w", "xgb_stacking_reg_wu", "xgb_stacking_reg_wui")
+all_targets <- c("onset", "peak_week", "peak_inc")
+preds <- assemble_predictions(
+  preds_path = file.path(awes_path, "evaluation/test-predictions"),
+  models = all_models,
+  prediction_targets = all_targets,
+  prediction_types = "log_score"
+) %>%
+  filter(analysis_time_season_week %in% 10:40) %>%
+  gather_("prediction_target", "log_score",
+    c("onset_log_score", "peak_week_log_score", "peak_inc_log_score")) %>%
+  mutate(
+    prediction_target = substr(prediction_target, 1, nchar(prediction_target) - 10),
+    score = exp(log_score)
+  )
+
+preds$log_score[is.infinite(preds$log_score)] <- -10
+preds <- preds %>%
+  left_join(region_season_obs_quantities, by = c("region", "analysis_time_season")) %>%
+  mutate(
+    before_onset = (analysis_time_season_week < observed_onset_week),
+    before_peak = (analysis_time_season_week < observed_peak_week))
+
+preds$before_target_date <- ifelse(
+  preds$prediction_target == "onset",
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_onset + 1],
+  c("on or after\ntarget date", "before\ntarget date")[preds$before_peak + 1]
+)
+
+preds$model[preds$model == "kde"] <- "KDE"
+preds$model[preds$model == "kcde"] <- "KCDE"
+preds$model[preds$model == "sarima"] <- "SARIMA"
+preds$model[preds$model == "equal_weights"] <- "EW"
+preds$model[preds$model == "em_stacking"] <- "CW"
+preds$model[preds$model == "xgb_stacking_unregularized"] <- "FW-wu"
+preds$model[preds$model == "xgb_stacking_reg_w"] <- "FW-reg-w"
+preds$model[preds$model == "xgb_stacking_reg_wu"] <- "FW-reg-wu"
+preds$model[preds$model == "xgb_stacking_reg_wui"] <- "FW-reg-wui"
+preds$model <- factor(preds$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+preds$prediction_target[preds$prediction_target == "onset"] <- "Onset Timing"
+preds$prediction_target[preds$prediction_target == "peak_inc"] <- "Peak Incidence"
+preds$prediction_target[preds$prediction_target == "peak_week"] <- "Peak Timing"
+preds$prediction_target <- factor(preds$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+
+preds <- preds %>%
+  mutate(
+    region = factor(region),
+    analysis_time_season = factor(analysis_time_season)
+  )
+
+res <- mean(log_score ~ model + prediction_target + analysis_time_season,
+  data = preds[preds$before_target_date == "before\ntarget date", ])
+temp <- strsplit(names(res), ".", fixed = TRUE) %>%
+  unlist() %>%
+  matrix(ncol = 3, byrow = TRUE)
+res <- cbind(temp, res) %>%
+  as.data.frame(stringsAsFactors = FALSE) %>%
+  `colnames<-`(c("model", "prediction_target", "season", "mean_log_score")) %>%
+  `rownames<-`(NULL) %>%
+  group_by_(.dots = c("prediction_target", "season")) %>%
+  mutate(mean_log_score = as.numeric(mean_log_score),
+    rank = rank(-1 * round(as.numeric(mean_log_score), 2)))
+res$prediction_target <- factor(res$prediction_target,
+  levels = c("Onset Timing", "Peak Timing", "Peak Incidence"))
+res$model <- factor(res$model,
+  levels = c("KDE", "KCDE", "SARIMA",
+    "EW", "CW", "FW-wu",
+    "FW-reg-w", "FW-reg-wu", "FW-reg-wui"))
+
+overall_rank <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Average Rank",
+#        mean_log_score = mean(mean_log_score),
+#        mean_log_score = "",
+        mean_log_score = format(round(mean(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
+        rank = round(mean(as.numeric(rank)), 2)
+        ) %>% ungroup()
+
+minimum_rank <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Rank",
+#        mean_log_score = mean(mean_log_score),
+#        mean_log_score = "",
+        mean_log_score = format(round(max(as.numeric(rank)), 2), nsmall=2), # gets printed in table cell
+        rank = round(max(as.numeric(rank)), 2)
+        ) %>% ungroup()
+
+overall_log_score <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Average Log Score",
+        mean_log_score = format(round(mean(mean_log_score), 2), nsmall=2)
+#        rank = NA
+#        mean_log_score = "",
+#        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+    ) %>%
+  ungroup() %>%
+  group_by(prediction_target) %>%
+  mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
+  ungroup()
+
+minimum_log_score <- res %>% group_by(prediction_target, model) %>%
+    summarize(
+        season="Lowest Log Score",
+        mean_log_score = format(round(min(mean_log_score), 2), nsmall=2)
+#        rank = NA
+#        mean_log_score = "",
+#        rank = factor(round(mean(as.numeric(rank))), levels=1:9)
+    ) %>%
+  ungroup() %>%
+  group_by(prediction_target) %>%
+  mutate(rank = rank(-1 * as.numeric(mean_log_score, 2))) %>%
+  ungroup()
+
+res_with_overall <- bind_rows(
+  res %>%
+    mutate(mean_log_score = format(round(mean_log_score,2), nsmall=2)),
+  overall_rank,
+  minimum_rank,
+  overall_log_score,
+  minimum_log_score)
+
+ggplot(data = res_with_overall, aes(x = model, y = season)) +
+  geom_tile(aes(fill = rank)) +
+  geom_text(aes(label=mean_log_score)) +
+  facet_wrap(~ prediction_target, ncol = 1) +
+  scale_fill_gradient2("Model\nRank",
+    breaks = 1:9,
+#    labels = as.character(1:9),
+    low = "#2166ac",
+    mid = "#f7f7f7",
+    high = "#b2182b",
+    midpoint = 5) +
+#    values = rev(c("#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"))) +
+  xlab("Model") +
+  ylab("Season") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
