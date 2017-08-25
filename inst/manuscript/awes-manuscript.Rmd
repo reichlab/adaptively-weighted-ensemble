@@ -144,7 +144,7 @@ or full predictive distributions.
 
 The ensemble methods that we explore in the present work are designed to combine predictions from multiple models, which could use a variety of different model structures and covariates to generate predictions.
 Development of the methods presented in this manuscript was motivated by the observation that certain prediction models for infectious disease consistently performed better than other models at certain times of year.
-We observed in previous research that early in the influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model \cite{ReichLabGitHubDiseasePredWithKCDEPackage}.
+We observed in previous research that early in the influenza season, simple models of historical incidence often outperformed more standard time-series prediction models such as a seasonal auto-regressive integrated moving average (SARIMA) model \cite{rayInPressKCDE}.
 However, in the middle of the season, the time-series models showed improved accuracy.
 We set out to determine whether ensemble methods could use this information about past model performance to improve predictions.
 
@@ -218,7 +218,7 @@ The CDC calculates the score of a prediction as the log of the combined probabil
 We have opted to use the log score in this work because it is a proper score.
 
 ## Component models
-We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence \cite{ReichLabGitHubDiseasePredWithKCDEPackage}.  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
+We used three component models to generate probabilistic predictions of the three prediction targets. The first model was a seasonal average model that utilized kernel density estimation (KDE) to estimate a predictive distribution for each target. The second model utilized kernel conditional density estimation (KCDE) and copulas to create a joint predictive distribution for incidence in all remaining weeks of the season, conditional on recent observations of incidence \cite{rayInPressKCDE}.  By calculating appropriate integrals of this joint distribution, we constructed predictive distributions for each of the seasonal targets.  The third model used a standard seasonal auto-regressive integrated moving average (SARIMA) implementation. All models were fit independently on data within each region.
 
 ### Kernel Density Estimation (KDE)
 The simplest of the component models uses kernel density estimation \cite{silverman1986density} to estimate a distribution for each target based on observed values of that target in previous seasons within the region of interest.
@@ -236,13 +236,13 @@ We set the sample size to $N = 10^5$.  In theory, this model assigns non-zero pr
 It is important to note that the predictions from this model do not change as new data are observed over the course of the season.
 
 ### Kernel Conditional Density Estimation (KCDE)
-We used kernel conditional density estimation and copulas to estimate a joint predictive distribution for flu incidence in each future week of the season, and then calculated predictive distributions for each target from that joint distribution \cite{ReichLabGitHubDiseasePredWithKCDEPackage}.
+We used kernel conditional density estimation and copulas to estimate a joint predictive distribution for flu incidence in each future week of the season, and then calculated predictive distributions for each target from that joint distribution \cite{rayInPressKCDE}.
 In our implementation, we first used KCDE to obtain separate predictive densities for flu incidence in each future week of the season.  Each of these predictive densities gives a conditional distribution for incidence at one future time point given recent observations of incidence and the current week of the season.  KCDE can be viewed as a distribution-based analogue of nearest-neighbors regression.  We then used a copula to model dependence among those individual predicitive densities, thereby obtaining a joint predicitive density, or a distribution of incidence trajectories in all future weeks.
 
 To predict seasonal quantities (onset, peak timing, and peak incidence), we simulate $N = 10^5$ trajectories of disease incidence from this joint predictive distribution.
 For each simulated incidence trajectory, we compute the onset week, peak week, and peak incidence.
 We then aggregate these values to create predictive distributions for each target.
-This procedure for obtaining predictive distributions for the targets of interest can be formally justified as an appropriate Monte Carlo integral of the joint predictive distribution for disease incidence in future weeks (see \cite{ReichLabGitHubDiseasePredWithKCDEPackage} for details).
+This procedure for obtaining predictive distributions for the targets of interest can be formally justified as an appropriate Monte Carlo integral of the joint predictive distribution for disease incidence in future weeks (see \cite{rayInPressKCDE} for details).
 
 ### Seasonal auto-regressive integrated moving average (SARIMA)
 We fit seasonal ARIMA models \cite{Box2015} to wILI observations transformed to be on the natural log scale.  We manually performed first-order seasonal differencing and used the stepwise procedure from the `auto.arima` function in the `forecast` package \cite{Hyndman2008} for R to select the specification of the auto-regressive and moving average terms.
